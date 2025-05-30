@@ -7,48 +7,52 @@ export async function middleware(req: NextRequest) {
     const secret = process.env.NEXTAUTH_SECRET;
     if (!secret) {
         console.error("Error: NEXTAUTH_SECRET is not set. JWTs cannot be decrypted.");
-        // Podrías redirigir a una página de error o simplemente permitir el acceso
-        // si consideras que en desarrollo sin secret es un estado válido (no recomendado para prod).
-        // Por ahora, simplemente retornamos para evitar un error fatal si el secret no está.
-        // En producción, esto debería ser un error crítico.
+        // Considera un manejo de error más robusto en producción
         return NextResponse.next();
     }
 
-    const token = await getToken({ req, secret, raw: false }); // raw: false para obtener el token decodificado
-
+    const token = await getToken({ req, secret, raw: false });
     const { pathname } = req.nextUrl;
 
-    // Rutas de autenticación (públicas, pero con lógica especial si ya está logueado)
-    const authRoutes = ['/login', '/register']; // Añade otras si las tienes (ej. /forgot-password)
+    const dashboardPath = '/dashboard/users'; // Define tu ruta de dashboard principal
+    const loginPath = '/login';
 
-    // Si el usuario está intentando acceder a una ruta de autenticación
+    // --- NUEVA LÓGICA PARA LA RUTA RAÍZ ---
+    if (pathname === '/') {
+        if (token) {
+            // Si está autenticado y en la raíz, redirigir al dashboard
+            return NextResponse.redirect(new URL(dashboardPath, req.url));
+        } else {
+            // Si no está autenticado y en la raíz, redirigir a login
+            return NextResponse.redirect(new URL(loginPath, req.url));
+        }
+    }
+
+    // --- LÓGICA EXISTENTE PARA RUTAS DE AUTENTICACIÓN ---
+    const authRoutes = ['/login', '/register']; // Añade otras si las tienes
     if (authRoutes.includes(pathname)) {
         if (token) {
-            // Si está autenticado y trata de ir a /login, redirigir al dashboard
-            // La URL por defecto a la que se redirige si ya está autenticado.
-            const defaultDashboardPath = '/dashboard/usuarios';
-            return NextResponse.redirect(new URL(defaultDashboardPath, req.url));
+            // Si está autenticado y trata de ir a una ruta de autenticación, redirigir al dashboard
+            return NextResponse.redirect(new URL(dashboardPath, req.url));
         }
         // Si no está autenticado y va a una ruta de auth, permitir
         return NextResponse.next();
     }
 
-    // Proteger todas las rutas bajo /dashboard
+    // --- LÓGICA EXISTENTE PARA RUTAS PROTEGIDAS (/dashboard) ---
     if (pathname.startsWith('/dashboard')) {
         if (!token) {
             // Si no hay token (no autenticado), redirigir a login
             // Guardar la URL original para redirigir después del login
-            const loginUrl = new URL('/login', req.url);
-            loginUrl.searchParams.set('callbackUrl', req.nextUrl.pathname + req.nextUrl.search);
-            return NextResponse.redirect(loginUrl);
+            const loginRedirectUrl = new URL(loginPath, req.url);
+            loginRedirectUrl.searchParams.set('callbackUrl', req.nextUrl.pathname + req.nextUrl.search);
+            return NextResponse.redirect(loginRedirectUrl);
         }
-        // Si hay token, verificar roles si es necesario (ejemplo básico)
-        // Aquí es donde podrías añadir lógica de RBAC (Role-Based Access Control)
-        // si tienes roles en tu token.
-        // Por ejemplo, si el token tiene `token.roles` como un array de strings:
+        // Si hay token, el usuario está autenticado.
+        // Aquí podrías añadir lógica de RBAC (Role-Based Access Control) si es necesario.
         // const userRoles = token.roles as string[] || [];
         // if (pathname.startsWith('/dashboard/admin') && !userRoles.includes('Admin')) {
-        //   return NextResponse.redirect(new URL('/unauthorized', req.url)); // O una página de "acceso denegado"
+        //   return NextResponse.redirect(new URL('/unauthorized', req.url));
         // }
     }
 
@@ -56,24 +60,12 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
 }
 
-// Configuración del Matcher: Especifica en qué rutas se ejecutará este middleware
+// Configuración del Matcher (ya modificado al inicio de esta explicación)
 export const config = {
     matcher: [
-        /*
-         * Coincide con todas las rutas de petición excepto por las de archivos estáticos y rutas de API de NextAuth:
-         * - api/auth (rutas de API de NextAuth para login, session, etc.)
-         * - _next/static (archivos estáticos de Next.js)
-         * - _next/image (optimización de imágenes de Next.js)
-         * - favicon.ico (archivo de favicon)
-         * Queremos que se ejecute en:
-         * - /login, /register, etc. (rutas de autenticación)
-         * - /dashboard/:path* (todas las rutas bajo dashboard)
-         */
+        '/',
         '/login',
-        '/register/:path*', // si tienes una ruta de registro
+        '/register/:path*',
         '/dashboard/:path*',
-        // Excluye explícitamente las rutas de API de NextAuth si es necesario, aunque el matcher anterior las cubre.
-        // La lógica interna del middleware ya maneja no bloquear /api/auth/* de forma incorrecta.
-        // '/((?!api/auth|_next/static|_next/image|favicon.ico).*)', // Un matcher más genérico si quieres que corra en casi todo.
     ],
 };
