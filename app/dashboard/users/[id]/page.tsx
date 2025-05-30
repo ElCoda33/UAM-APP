@@ -52,6 +52,9 @@ export default function UserProfilePageClient() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+
+
+  
   useEffect(() => {
     if (!id) {
       // Esto podría pasar si los params no están listos o la ruta es incorrecta

@@ -3,11 +3,13 @@
     "editor.indentSize": "tabSize",
     "indentRainbow.indentSetter": {},
     "editor.autoIndent": "keep",
-    "indentRainbow.ignoreErrorLanguages": ["markdown"],
+    "indentRainbow.ignoreErrorLanguages": [
+        "markdown"
+    ],
     "editor.formatOnSave": true,
     "json.schemas": [],
     "workbench.colorTheme": "One Dark Pro",
-    "files.autoSave": "off",
+    "files.autoSave": "afterDelay",
     "javascript.updateImportsOnFileMove.enabled": "always",
     "editor.fontFamily": "Victor Mono",
     "editor.fontLigatures": true,

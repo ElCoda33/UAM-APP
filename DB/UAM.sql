@@ -357,3 +357,4 @@ VALUES (
 );
 
 
+select * from users;

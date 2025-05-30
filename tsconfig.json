@@ -35,7 +35,7 @@
         "**/*.ts",
         "**/*.tsx",
         ".next/types/**/*.ts",
-        "config/generate-hash.js",
+        "config/node generate-hash.js",
         "middleware.ts",
         "next-auth.d.ts"
     ],
