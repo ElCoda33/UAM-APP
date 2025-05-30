@@ -1,0 +1,18 @@
+{
+    "settingsSync.ignoredSettings": [],
+    "editor.indentSize": "tabSize",
+    "indentRainbow.indentSetter": {},
+    "editor.autoIndent": "keep",
+    "indentRainbow.ignoreErrorLanguages": ["markdown"],
+    "editor.formatOnSave": true,
+    "json.schemas": [],
+    "workbench.colorTheme": "One Dark Pro",
+    "files.autoSave": "off",
+    "javascript.updateImportsOnFileMove.enabled": "always",
+    "editor.fontFamily": "Victor Mono",
+    "editor.fontLigatures": true,
+    "terminal.integrated.env.windows": {},
+    "console-ninja.featureSet": "Community",
+    "scm.experimental.showHistoryGraph": true,
+    "workbench.iconTheme": "icons"
+}
