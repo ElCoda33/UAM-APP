@@ -19,7 +19,7 @@ import {
     Pagination,
     Selection,
     ChipProps,
-} from '@nextui-org/react'
+} from "@heroui/react"
 
 import { PlusIcon } from './PlusIcon'
 import { VerticalDotsIcon } from './VerticalDotsIcon'

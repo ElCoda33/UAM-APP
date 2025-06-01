@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, FormEvent } from "react";
-import { Card, CardHeader, CardBody, Input, Button, Spinner } from "@nextui-org/react";
+import { Card, CardHeader, CardBody, Input, Button, Spinner } from "@heroui/react";
 import { useSession } from "next-auth/react";
 import { toast } from "react-hot-toast"; // La importación es correcta
 import { updateProfileSchema } from "@/lib/schema";

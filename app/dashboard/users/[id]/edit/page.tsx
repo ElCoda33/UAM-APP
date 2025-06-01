@@ -14,7 +14,7 @@ import {
   Link as NextUILink,
   Textarea,
   Divider,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { toast } from "react-hot-toast";
 import { useSession } from "next-auth/react"; // Importar useSession
 import { ArrowLeftIcon } from "@/components/icons/ArrowLeftIcon";

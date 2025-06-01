@@ -3,8 +3,8 @@ import {
     DropdownTrigger,
     DropdownMenu,
     DropdownItem,
-} from '@nextui-org/dropdown'
-import { Button } from '@nextui-org/button'
+} from "@heroui/dropdown"
+import { Button } from "@heroui/button"
 
 export default function Mydropdown() {
     return (

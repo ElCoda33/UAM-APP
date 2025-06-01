@@ -17,7 +17,7 @@ import {
     DropdownItem,
     Spinner, // Para el estado de carga de la sesión
     Button
-} from '@nextui-org/react'
+} from "@heroui/react"
 import { useRouter } from 'next/navigation'
 import { usePathname } from 'next/navigation'
 
@@ -62,13 +62,11 @@ export default function NavBar() {
                     aria-label={isMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
                 />
             </NavbarContent>
-
             <NavbarContent className="sm:hidden pr-3" justify="center">
                 <NavbarBrand>
                     <p className="font-bold text-inherit">UAM</p>
                 </NavbarBrand>
             </NavbarContent>
-
             <NavbarContent className="hidden sm:flex gap-4" justify="center">
                 <NavbarBrand>
                     <p className="font-bold text-inherit ">UAM</p>
@@ -88,7 +86,6 @@ export default function NavBar() {
                     </NavbarItem>
                 ))}
             </NavbarContent>
-
             <NavbarContent justify="end">
                 <ThemeSwitch />
 
@@ -134,14 +131,13 @@ export default function NavBar() {
                     </Dropdown>
                 ) : (
                     // Opcional: Mostrar botón de Login si no está autenticado
-                    <NavbarItem>
+                    (<NavbarItem>
                         <Button as={Link} color="primary" href="/login" variant="flat">
                             Iniciar Sesión
                         </Button>
-                    </NavbarItem>
+                    </NavbarItem>)
                 )}
             </NavbarContent>
-
             <NavbarMenu>
                 {menuItems.map((item, index) => (
                     <NavbarMenuItem key={`${item.label}-${index}`}>
@@ -181,5 +177,5 @@ export default function NavBar() {
                 )}
             </NavbarMenu>
         </Navbar>
-    )
+    );
 }

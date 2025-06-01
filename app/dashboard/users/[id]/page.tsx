@@ -12,7 +12,7 @@ import {
   Divider,
   Link as NextUILink,
   Spinner, // Para el estado de carga
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { ArrowLeftIcon } from "@/components/icons/ArrowLeftIcon";
 import { EditIcon } from "@/components/icons/EditIcon";
 

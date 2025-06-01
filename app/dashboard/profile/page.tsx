@@ -13,7 +13,7 @@ import {
   Spinner,
   Button,
   // NextUIAvatar ya no se usará directamente aquí, AvatarUpload lo maneja
-} from "@nextui-org/react";
+} from "@heroui/react";
 
 import AvatarUpload from "./components/avatarUpload";
 import ProfileForm from "./components/profileForm";
@@ -78,7 +78,6 @@ export default function ProfilePageClient() {
           Mi Perfil
         </h1>
       </header>
-
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
         {/* Columna Izquierda: Perfil y Actualización de Avatar Integrados */}
         <div className="md:col-span-1 space-y-6">

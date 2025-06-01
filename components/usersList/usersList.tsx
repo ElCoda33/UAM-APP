@@ -25,7 +25,7 @@ import {
     ModalHeader,
     ModalBody,
     useDisclosure,
-} from '@nextui-org/react'
+} from "@heroui/react"
 import { useRouter } from 'next/navigation'
 
 import { PlusIcon } from '../icons/PlusIcon'

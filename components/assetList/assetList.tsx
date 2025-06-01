@@ -8,7 +8,7 @@ import {
     Chip, User, Pagination, Selection, ChipProps, Spinner, Modal, ModalContent,
     ModalHeader, ModalBody, useDisclosure, SortDescriptor, Select, SelectItem,
     DatePicker // Importar DatePicker
-} from '@nextui-org/react';
+} from "@heroui/react";
 import { DateValue } from "@internationalized/date"; // Importar DateValue
 import { useRouter } from 'next/navigation';
 import MoveUpRoundedIcon from '@mui/icons-material/MoveUpRounded';
@@ -216,7 +216,8 @@ export default function AssetList() {
                 const date = parseDateStringAsUTC(cellValue as string | null);
                 return date ? date.toLocaleDateString(undefined, { timeZone: 'UTC' }) : "N/A";
             case 'actions':
-                return ( /* ... (acciones sin cambios) ... */
+                return (
+                    /* ... (acciones sin cambios) ... */
                     <div className="relative flex justify-end items-center gap-2">
                         <Dropdown><DropdownTrigger><Button isIconOnly size="sm" variant="light"><VerticalDotsIcon className="text-default-300" /></Button></DropdownTrigger>
                             <DropdownMenu aria-label={`Acciones para ${asset.product_name}`}>

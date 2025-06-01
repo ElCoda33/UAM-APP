@@ -21,7 +21,7 @@ import {
     ChipProps,
     Spinner,
     useDisclosure,
-} from '@nextui-org/react'
+} from "@heroui/react"
 import { useRouter } from 'next/navigation'
 import MoveUpRoundedIcon from '@mui/icons-material/MoveUpRounded'
 import BorderColorRoundedIcon from '@mui/icons-material/BorderColorRounded'

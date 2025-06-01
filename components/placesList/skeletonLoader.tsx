@@ -1,5 +1,5 @@
 import React from 'react'
-import { Skeleton } from '@nextui-org/react'
+import { Skeleton } from "@heroui/react"
 
 export default function SkeletonLoader() {
     return (

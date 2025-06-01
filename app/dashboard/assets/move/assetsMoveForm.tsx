@@ -6,7 +6,7 @@ import {
     Input,
     Select,
     SelectItem,
-} from '@nextui-org/react'
+} from "@heroui/react"
 import React, { useContext, useRef, useState } from 'react'
 import { enqueueSnackbar } from 'notistack'
 

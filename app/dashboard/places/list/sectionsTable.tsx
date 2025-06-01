@@ -9,7 +9,7 @@ import {
     TableCell,
     getKeyValue,
     Spinner,
-} from '@nextui-org/react'
+} from "@heroui/react"
 
 import { fetchSecciones } from '@/lib/data/sections/get'
 

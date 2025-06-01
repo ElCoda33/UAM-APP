@@ -22,7 +22,7 @@ import {
     Select,
     SelectItem,
     SortDescriptor,
-} from "@nextui-org/react";
+} from "@heroui/react";
 
 import { EditIcon } from "@/components/icons/EditIcon";
 import { DeleteIcon } from "@/components/icons/DeleteIcon";

@@ -1,6 +1,6 @@
 'use client'
-import { Input } from '@nextui-org/input'
-import { Button, Tooltip } from '@nextui-org/react'
+import { Input } from "@heroui/input"
+import { Button, Tooltip } from "@heroui/react"
 import QuestionMarkIcon from '@mui/icons-material/QuestionMark'
 import { useRef } from 'react'
 import { enqueueSnackbar } from 'notistack'

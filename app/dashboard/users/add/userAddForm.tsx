@@ -1,12 +1,12 @@
 'use client'
-import { Input } from '@nextui-org/input'
+import { Input } from "@heroui/input"
 import {
     Autocomplete,
     AutocompleteItem,
     Button,
     DatePicker,
     Tooltip,
-} from '@nextui-org/react'
+} from "@heroui/react"
 import { useEffect, useRef, useState } from 'react'
 import { useSnackbar } from 'notistack'
 import { parseAbsoluteToLocal } from '@internationalized/date'

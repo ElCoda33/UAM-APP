@@ -1,7 +1,7 @@
 'use client'
 
-import { Input } from '@nextui-org/input'
-import { Autocomplete, AutocompleteItem, Button } from '@nextui-org/react'
+import { Input } from "@heroui/input"
+import { Autocomplete, AutocompleteItem, Button } from "@heroui/react"
 import { useRef, useState, useEffect } from 'react'
 import { useSnackbar } from 'notistack'
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { Input } from '@nextui-org/input'
+import { Input } from "@heroui/input"
 import {
     Autocomplete,
     AutocompleteItem,
@@ -8,7 +8,7 @@ import {
     Select,
     SelectItem,
     Tooltip,
-} from '@nextui-org/react'
+} from "@heroui/react"
 import QuestionMarkIcon from '@mui/icons-material/QuestionMark'
 import { useRef, useState, useEffect } from 'react'
 import { useSnackbar } from 'notistack'

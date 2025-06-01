@@ -4,7 +4,7 @@
 import { useState, FormEvent, useEffect } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Input, Button, Card, CardHeader, CardBody, CardFooter, Link as NextUILink, Divider, CircularProgress } from "@nextui-org/react";
+import { Input, Button, Card, CardHeader, CardBody, CardFooter, Link as NextUILink, Divider, CircularProgress } from "@heroui/react";
 import { toast } from "react-hot-toast";
 
 export default function LoginPage() {

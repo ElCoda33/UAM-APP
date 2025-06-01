@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useRef, ChangeEvent, useEffect } from "react";
-import { Avatar as NextUIAvatar, Button, Progress } from "@nextui-org/react";
+import { Avatar as NextUIAvatar, Button, Progress } from "@heroui/react";
 import { toast } from "react-hot-toast"; // Sigue siendo necesario para toast.error y toast.loading
 import { useSession } from "next-auth/react";
 import { EditIcon } from "@/components/icons/EditIcon";
