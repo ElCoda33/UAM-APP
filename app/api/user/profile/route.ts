@@ -27,14 +27,16 @@ export async function PUT(request: Request) {
       );
     }
 
-    const { name } = validationResult.data;
+
+    
+    const { lastName } = validationResult.data;
 
     // Lógica para actualizar en la base de datos (mysql2)
     // Ejemplo:
-    // await updateUserProfile(session.user.id, { name });
-    console.log(`Actualizando perfil para usuario ${session.user.id}: Nombre: ${name}`);
+    // await updateUserProfile(session.user.id, { lastName });
+    console.log(`Actualizando perfil para usuario ${session.user.id}: Nombre: ${lastName}`);
     // Simulación de éxito
-    if (name === "error") { // Para probar errores
+    if (lastName === "error") { // Para probar errores
       return NextResponse.json({ message: "Error simulado al actualizar DB" }, { status: 500 });
     }
 

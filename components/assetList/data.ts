@@ -1,42 +1,25 @@
-const columns = [
-    { name: 'PRODUCTO', uid: 'producto', sortable: true },
-    { name: 'DESCRIPCIÓN', uid: 'descripcion', sortable: true },
-    { name: 'NÚMERO DE SERIE', uid: 'nro_serie', sortable: true },
-    { name: 'SECCIÓN ACTUAL', uid: 'seccion', sortable: true },
-    { name: 'FECHA DE VENTA', uid: 'fecha_venta', sortable: true },
-    { name: 'RUT DE LA EMPRESA', uid: 'rut_empresa', sortable: true },
-    { name: 'NÚMERO DE FACTURA', uid: 'nro_factura', sortable: true },
-    { name: 'FECHA DE GARANTÍA', uid: 'fecha_garantia', sortable: true },
-    { name: 'CÓDIGO DE INVENTARIO', uid: 'codigo_inventario', sortable: true },
-    {
-        name: 'PROCEDIMIENTO DE ADQUISICIÓN',
-        uid: 'procedimiento_adquisicion',
-        sortable: true,
-    },
-    { name: 'ESTADO', uid: 'estado', sortable: true },
-    { name: 'ACTIONS', uid: 'actions' },
-]
+// components/assetList/data.ts
 
-const statusOptions = [
-    { name: 'en uso', uid: 'enUso' },
-    { name: 'Dado de baja', uid: 'baja' },
-    { name: 'En deposito', uid: 'deposito' },
-]
+export const columns = [
+    { name: 'PRODUCTO', uid: 'product_name', sortable: true, filterable: true, type: 'string' },
+    { name: 'Nº SERIE', uid: 'serial_number', sortable: true, filterable: true, type: 'string' },
+    { name: 'CÓD. INVENTARIO', uid: 'inventory_code', sortable: true, filterable: true, type: 'string' },
+    { name: 'DESCRIPCIÓN', uid: 'description', sortable: true, filterable: true, type: 'string' },
+    { name: 'SECCIÓN ACTUAL', uid: 'current_section_name', sortable: true, filterable: true, type: 'string' },
+    { name: 'PROVEEDOR', uid: 'supplier_company_name', sortable: true, filterable: true, type: 'string' },
+    { name: 'FECHA COMPRA', uid: 'purchase_date', sortable: true, filterable: true, type: 'date' },
+    { name: 'Nº FACTURA', uid: 'invoice_number', sortable: false, filterable: true, type: 'string' },
+    { name: 'VTO. GARANTÍA', uid: 'warranty_expiry_date', sortable: true, filterable: true, type: 'date' },
+    { name: 'PROC. ADQUISICIÓN', uid: 'acquisition_procedure', sortable: true, filterable: true, type: 'string' },
+    { name: 'ESTADO', uid: 'status', sortable: true, filterable: true, type: 'string' }, // O un tipo 'status' si quieres manejo especial
+    { name: 'ACCIONES', uid: 'actions', sortable: false, filterable: false },
+];
 
-const users = [
-    {
-        id: 'dsfsdf',
-        ci: '53215654',
-        nombre: 'german',
-        apellido: 'Coordinator',
-        rol: 'administrador',
-        seccion: 'Operations',
-        estado: 'active',
-        edad: '26',
-        avatar: 'https://i.pravatar.cc/150?img=45',
-        email: 'mia.robinson@example.com',
-        fecha_nacimiento: '2004-25-25',
-    },
-]
-
-export { columns, users, statusOptions }
+// statusOptions sin cambios
+export const statusOptions = [
+    { name: 'En Uso', uid: 'in_use' },
+    { name: 'En Depósito', uid: 'in_storage' },
+    { name: 'En Reparación', uid: 'under_repair' },
+    { name: 'Dada de Baja', uid: 'disposed' },
+    { name: 'Perdido', uid: 'lost' },
+];

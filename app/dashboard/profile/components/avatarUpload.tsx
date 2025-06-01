@@ -1,28 +1,28 @@
+// app/dashboard/profile/components/avatarUpload.tsx
 "use client";
 
 import { useState, useRef, ChangeEvent, useEffect } from "react";
-import { Avatar as NextUIAvatar, Button, Progress, Card, CardBody, CardHeader } from "@nextui-org/react";
-import { toast } from "react-hot-toast";
-import { useSession } from "next-auth/react"; // Para actualizar la sesión del cliente
+import { Avatar as NextUIAvatar, Button, Progress } from "@nextui-org/react";
+import { toast } from "react-hot-toast"; // Sigue siendo necesario para toast.error y toast.loading
+import { useSession } from "next-auth/react";
+import { EditIcon } from "@/components/icons/EditIcon";
 
 interface AvatarUploadProps {
-  userId: string; // ID del usuario cuyo avatar se está cambiando
+  userId: string;
   currentAvatarUrl: string | null | undefined;
-  onUploadSuccess: (newAvatarUrl: string) => void; // Callback para notificar al padre
+  onUploadSuccess: (newAvatarUrl: string) => void;
 }
 
 export default function AvatarUpload({ userId, currentAvatarUrl, onUploadSuccess }: AvatarUploadProps) {
-  const { data: session, update: updateSession } = useSession(); // Hook de NextAuth para actualizar la sesión
+  const { data: session, update: updateSession } = useSession();
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(currentAvatarUrl || null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Actualizar la preview si el currentAvatarUrl cambia desde el padre
-    // (por ejemplo, si la sesión se actualiza por otro medio)
     setPreviewUrl(currentAvatarUrl || null);
   }, [currentAvatarUrl]);
 
@@ -32,13 +32,13 @@ export default function AvatarUpload({ userId, currentAvatarUrl, onUploadSuccess
       const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
       if (!allowedTypes.includes(file.type)) {
         toast.error('Tipo de archivo no permitido. Solo JPG, PNG, WEBP, GIF.');
-        event.target.value = ""; // Resetear el input
+        event.target.value = "";
         return;
       }
       const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
       if (file.size > maxSizeInBytes) {
         toast.error(`El archivo es demasiado grande. Máximo: ${maxSizeInBytes / (1024 * 1024)}MB.`);
-        event.target.value = ""; // Resetear el input
+        event.target.value = "";
         return;
       }
 
@@ -62,13 +62,11 @@ export default function AvatarUpload({ userId, currentAvatarUrl, onUploadSuccess
 
     setIsUploading(true);
     setUploadProgress(0);
-    toast.loading("Subiendo imagen...", { id: "avatarUploadToast" });
+    const toastId = toast.loading("Subiendo imagen...");
 
     const formData = new FormData();
     formData.append("avatar", selectedFile);
 
-    // Simulación de progreso (fetch no tiene progreso nativo para subidas)
-    // Para un progreso real, necesitarías XHR o librerías de terceros.
     let progressInterval = setInterval(() => {
       setUploadProgress(prev => {
         if (prev >= 90) {
@@ -80,7 +78,7 @@ export default function AvatarUpload({ userId, currentAvatarUrl, onUploadSuccess
     }, 200);
 
     try {
-      const response = await fetch(`/api/users/${userId}/avatar`, { // Llama a tu API
+      const response = await fetch(`/api/users/${userId}/avatar`, {
         method: "POST",
         body: formData,
       });
@@ -90,95 +88,111 @@ export default function AvatarUpload({ userId, currentAvatarUrl, onUploadSuccess
 
       if (!response.ok) {
         setUploadProgress(0);
-        toast.error(data.message || "Error al subir el avatar.", { id: "avatarUploadToast" });
+        toast.error(data.message || "Error al subir el avatar.", { id: toastId });
         throw new Error(data.message || "Error en la subida");
       }
 
       setUploadProgress(100);
-      toast.success(data.message || "Avatar actualizado correctamente.", { id: "avatarUploadToast" });
+      // --- SE ELIMINA EL TOAST.SUCCESS DE AQUÍ ---
+      // toast.success(data.message || "Avatar procesado correctamente.", { id: toastId }); 
+      toast.dismiss(toastId); // Quitar el toast de "Subiendo imagen..."
 
-      // Actualizar la sesión de NextAuth para reflejar el nuevo avatar inmediatamente
-      // Esto es importante para que otros componentes que usen `useSession` (ej. Navbar) se actualicen.
-      if (session) {
-        console.log("AVATAR_UPLOAD: Llamando a updateSession con:", { image: data.avatarUrl });
-        console.log(data.avatarUrl, "DATA NUEVA")
-        const updatedSessionResponse = await updateSession({ image: data.avatarUrl });
-        console.log("AVATAR_UPLOAD: Respuesta de updateSession:", updatedSessionResponse);
+      if (session?.user?.id === userId) {
+        console.log("AVATAR_UPLOAD: Coincide el ID de usuario. Llamando a updateSession con:", { image: data.avatarUrl });
+        await updateSession({ image: data.avatarUrl });
+      } else {
+        console.log("AVATAR_UPLOAD: IDs de usuario no coinciden. No se llama a updateSession.",
+          `Session User ID: ${session?.user?.id}, Target User ID: ${userId}`);
       }
 
-      // Llamar al callback onUploadSuccess para notificar a la página contenedora (ProfilePage)
-      // y que esta pueda actualizar su propio estado local para la imagen si es necesario.
-      onUploadSuccess(data.avatarUrl);
-
-      setSelectedFile(null); // Limpiar selección después de subir
-      // La previewUrl ya se habrá actualizado a través de onUploadSuccess -> setCurrentUserAvatar -> useEffect
+      onUploadSuccess(data.avatarUrl); // Notificar al padre
+      setSelectedFile(null);
 
     } catch (error: any) {
       console.error("Error uploading avatar:", error);
-      toast.error(error.message || "Ocurrió un error inesperado al subir el avatar.", { id: "avatarUploadToast" });
+      if (toastId) toast.dismiss(toastId); // Asegurarse de quitar el loading toast en caso de error
+      toast.error(error.message || "Ocurrió un error inesperado al subir el avatar.");
       setUploadProgress(0);
     } finally {
       setIsUploading(false);
-      // No reseteamos previewUrl aquí, se actualiza a través del prop currentAvatarUrl y onUploadSuccess
+    }
+  };
+
+  const triggerFileInput = () => {
+    if (!isUploading) {
+      fileInputRef.current?.click();
     }
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <h3 className="text-lg font-semibold">Actualizar Foto de Perfil</h3>
-      </CardHeader>
-      <CardBody className="items-center space-y-4 p-6">
+    <div className="flex flex-col items-center space-y-4 w-full">
+      <div
+        className="relative group cursor-pointer"
+        onClick={triggerFileInput}
+        onKeyPress={(e) => { if (e.key === 'Enter' || e.key === ' ') triggerFileInput(); }}
+        role="button"
+        tabIndex={0}
+        aria-label="Cambiar foto de perfil"
+        title="Haz clic para cambiar la foto de perfil"
+      >
         <NextUIAvatar
           src={previewUrl || undefined}
-          name={session?.user?.name?.charAt(0) || session?.user?.firstName?.charAt(0) || 'U'}
-          className="w-32 h-32 md:w-40 md:h-40 text-large border-2"
-        />
-
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept="image/png, image/jpeg, image/webp, image/gif"
-          className="hidden"
-          id={`avatar-upload-input-${userId}`} // ID único si hay múltiples instancias
-        />
-
-        <Button
-          onPress={() => fileInputRef.current?.click()}
-          variant="flat"
+          name={session?.user?.id === userId
+            ? (session?.user?.name?.charAt(0) || session?.user?.firstName?.charAt(0) || 'P')
+            : 'U' // Podrías pasar el nombre del usuario editado como prop para una mejor inicial
+          }
+          className="w-32 h-32 md:w-40 md:h-40 text-large border-2 border-primary group-hover:border-secondary transition-colors"
+          isBordered
           color="primary"
-          isDisabled={isUploading}
-          fullWidth
-        >
-          {selectedFile ? "Cambiar Imagen Seleccionada" : "Seleccionar Nueva Imagen"}
-        </Button>
-
-        {selectedFile && !isUploading && (
-          <div className="text-center w-full">
-            <p className="text-sm text-default-500 truncate">Archivo: {selectedFile.name}</p>
-            <Button color="success" onPress={handleUpload} className="mt-2" fullWidth>
-              Subir y Guardar Imagen
-            </Button>
+        />
+        {!isUploading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 ease-in-out rounded-full pointer-events-none">
+            <EditIcon className="w-8 h-8 text-white opacity-0 group-hover:opacity-75 transition-opacity duration-300 ease-in-out" />
           </div>
         )}
+      </div>
 
-        {isUploading && (
-          <div className="w-full px-1">
-            <Progress
-              aria-label="Subiendo imagen..."
-              size="sm"
-              value={uploadProgress}
-              color={uploadProgress < 100 ? "primary" : "success"}
-              showValueLabel={true}
-              className="max-w-full"
-            />
-            <p className="text-sm text-center text-default-500 mt-1">
-              {uploadProgress < 100 ? "Subiendo..." : "Completado"}
-            </p>
-          </div>
-        )}
-      </CardBody>
-    </Card>
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/png, image/jpeg, image/webp, image/gif"
+        className="hidden"
+        id={`avatar-upload-input-${userId}`}
+        disabled={isUploading}
+      />
+
+      {selectedFile && !isUploading && (
+        <div className="text-center w-full max-w-xs">
+          <p className="text-sm text-default-500 truncate mb-2">
+            Archivo: {selectedFile.name}
+          </p>
+          <Button
+            color="success"
+            onPress={handleUpload}
+            fullWidth
+            className="bg-gradient-to-tr from-green-500 to-blue-500 text-white shadow-lg hover:opacity-90"
+          >
+            Confirmar y Subir Imagen
+          </Button>
+        </div>
+      )}
+
+      {isUploading && (
+        <div className="w-full max-w-xs px-1">
+          <Progress
+            aria-label="Subiendo imagen..."
+            size="sm"
+            value={uploadProgress}
+            color={uploadProgress < 100 ? "primary" : "success"}
+            showValueLabel={true}
+            className="max-w-full"
+          />
+          <p className="text-sm text-center text-default-500 mt-1">
+            {uploadProgress < 100 ? "Subiendo..." : "Completado"}
+          </p>
+        </div>
+      )}
+    </div>
   );
 }

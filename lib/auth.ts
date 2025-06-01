@@ -66,14 +66,14 @@ export const authOptions: NextAuthOptions = {
         const currentPool = getPool();
         try {
           const userQuery = `
-            SELECT 
-              u.id, u.email, u.password_hash, u.first_name, u.last_name, 
+            SELECT
+              u.id, u.email, u.password_hash, u.first_name, u.last_name,
               u.avatar_url, u.national_id, u.status, u.section_id,
               DATE_FORMAT(u.birth_date, '%Y-%m-%d') AS birth_date,
               u.email_verified_at, u.created_at, u.updated_at,
               s.name as section_name
-            FROM users u 
-            LEFT JOIN sections s ON u.section_id = s.id 
+            FROM users u
+            LEFT JOIN sections s ON u.section_id = s.id
             WHERE u.email = ?
           `;
           const [rows] = await currentPool.query<DBUser[]>(userQuery, [credentials.email]);
@@ -97,7 +97,7 @@ export const authOptions: NextAuthOptions = {
               id: userFromDb.id.toString(),
               email: userFromDb.email,
               name: `${userFromDb.first_name || ''} ${userFromDb.last_name || ''}`.trim() || null,
-              image: userFromDb.avatar_url,
+              image: userFromDb.avatar_url, // Este es el que se usa para el avatar
               firstName: userFromDb.first_name,
               lastName: userFromDb.last_name,
               roles: roles,
@@ -122,50 +122,45 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user, trigger }) { // `account` no es necesario aquí para la lógica de update
+    async jwt({ token, user, trigger, session }) { // `session` está disponible si pasas datos con `update(data)`
       // `user` es el objeto devuelto por `authorize` (en login inicial)
       // O el objeto que pasaste a `useSession().update(data)` si `trigger` es "update"
 
-      if (trigger === "update" && user) {
-        // `user` contiene los datos pasados a la función `update()` del cliente.
-        // Por ejemplo, si llamaste `update({ image: 'nueva_url' })`, user será `{ image: 'nueva_url' }`.
-        console.log("JWT Callback: Trigger='update'. Datos recibidos para actualizar token:", user);
+      // IMPORTANTE: Verifica estos logs en la consola de tu servidor Next.js cuando actualices el avatar.
+      console.log("JWT Callback --- Trigger:", trigger);
+      if (trigger === "update" && session) { // `session` contiene los datos pasados a `updateSession`
+        console.log("JWT Callback: Trigger='update'. Datos recibidos en `session` para actualizar token:", session);
 
-        const dataToUpdate = user as Partial<NextAuthUser>; // Los datos que quieres actualizar en el token
+        // Los datos pasados a updateSession() están en el argumento `session` aquí.
+        // Si llamaste a updateSession({ image: 'nueva_url' }), entonces session será { image: 'nueva_url' }.
+        const dataToUpdate = session as Partial<NextAuthUser & { image?: string }>;
 
+
+        // VERIFICAR: ¿`dataToUpdate.image` tiene la nueva URL del avatar?
         if (dataToUpdate.image !== undefined) {
-          token.image = dataToUpdate.image; // Usamos token.image
-          console.log("AUTH.TS JWT --- token.image actualizado a:", token.image);
-          token.picture = dataToUpdate.image;
+          token.picture = dataToUpdate.image; // `picture` es el campo estándar para la imagen en JWT
+          token.image = dataToUpdate.image;   // Mantén tu campo `image` si lo usas directamente en otros lugares
+          console.log("AUTH.TS JWT --- token.picture actualizado a:", token.picture);
         }
-        // Actualiza solo los campos del token que están presentes en `dataToUpdate`
-        if (dataToUpdate.name !== undefined) token.name = dataToUpdate.name;
-        if (dataToUpdate.email !== undefined) token.email = dataToUpdate.email; // Aunque el email rara vez se actualiza así
-        if (dataToUpdate.image !== undefined) token.picture = dataToUpdate.image; // `image` en User/Session -> `picture` en JWT
 
-        // Campos personalizados
+        // Actualiza otros campos si es necesario
+        if (dataToUpdate.name !== undefined) token.name = dataToUpdate.name;
+        if (dataToUpdate.email !== undefined) token.email = dataToUpdate.email;
         if (dataToUpdate.firstName !== undefined) token.firstName = dataToUpdate.firstName;
         if (dataToUpdate.lastName !== undefined) token.lastName = dataToUpdate.lastName;
-        if (dataToUpdate.roles !== undefined) token.roles = dataToUpdate.roles; // Espera string[]
-        if (dataToUpdate.national_id !== undefined) token.national_id = dataToUpdate.national_id;
-        if (dataToUpdate.status !== undefined) token.status = dataToUpdate.status;
-        if (dataToUpdate.section_id !== undefined) token.section_id = dataToUpdate.section_id;
-        if (dataToUpdate.section_name !== undefined) token.section_name = dataToUpdate.section_name;
-        if (dataToUpdate.birth_date !== undefined) token.birth_date = dataToUpdate.birth_date;
-        if (dataToUpdate.email_verified_at !== undefined) token.email_verified_at = dataToUpdate.email_verified_at;
-        // `created_at` no debería cambiar. `updated_at` sí, pero usualmente se refresca desde la DB.
-        // Si la API de update de perfil devuelve el usuario completo, puedes pasar todo el objeto user actualizado a `update()`
-        // y aquí todos estos `if` se cumplirían.
+        
+        // ... otros campos personalizados ...
 
-      } else if (user) { // Flujo de login inicial (trigger no es "update" y user está presente)
+      } else if (user) { // Flujo de login inicial
         console.log("JWT Callback: Login inicial. Poblando token con datos del usuario:", (user as NextAuthUser).email);
         const u = user as NextAuthUser;
 
-        token.id = u.id; // `id` es crucial
+        token.id = u.id;
         token.name = u.name;
         token.email = u.email;
-        token.picture = u.image; // NextAuth usa 'picture' en JWT para 'image' de User
-        // Campos personalizados
+        token.picture = u.image; // `image` del User object va a `picture` en JWT
+        token.image = u.image;   // También guarda en `image` por consistencia si lo usas
+
         token.firstName = u.firstName;
         token.lastName = u.lastName;
         token.roles = u.roles;
@@ -178,16 +173,17 @@ export const authOptions: NextAuthOptions = {
         token.created_at = u.created_at;
         token.updated_at = u.updated_at;
       }
+      console.log("JWT Callback --- Token final:", token);
       return token;
     },
     async session({ session, token }) {
-      // `token` ya tiene todos los datos (actualizados o del login inicial)
-      // Ahora los pasamos a `session.user` para el cliente
+      console.log("Session Callback --- Token recibido:", token);
       if (session.user) {
-        session.user.id = token.id as string; // `id` viene del token
+        session.user.id = token.id as string;
         session.user.name = token.name;
         session.user.email = token.email;
-        session.user.image = token.picture; // `picture` del token es `image` para la sesión
+        session.user.image = token.picture as string | null | undefined; // `picture` del token es `image` para la sesión cliente
+
         // Campos personalizados
         session.user.firstName = token.firstName as string | undefined | null;
         session.user.lastName = token.lastName as string | undefined | null;
@@ -201,6 +197,7 @@ export const authOptions: NextAuthOptions = {
         session.user.created_at = token.created_at as string | undefined;
         session.user.updated_at = token.updated_at as string | undefined;
       }
+      console.log("Session Callback --- Sesión final:", session);
       return session;
     },
   },
@@ -208,5 +205,5 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
     error: "/login",
   },
-  // debug: process.env.NODE_ENV === 'development',
+  // debug: process.env.NODE_ENV === 'development', // Descomenta para más logs de NextAuth
 };
