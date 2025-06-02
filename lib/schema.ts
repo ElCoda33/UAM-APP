@@ -2,6 +2,39 @@
 import { RowDataPacket } from "mysql2";
 import { z } from "zod";
 
+
+
+
+
+
+export const userStatusEnum = z.enum(['active', 'disabled', 'on_vacation', 'pending_approval'], {
+    required_error: "El estado es requerido.",
+    invalid_type_error: "Estado no válido.",
+});
+
+export const createUserSchema = z.object({
+    first_name: z.string().max(100, "Máximo 100 caracteres.").optional().nullable(),
+    last_name: z.string().max(100, "Máximo 100 caracteres.").optional().nullable(),
+    email: z.string().min(1, "El email es requerido.").email("Email inválido.").max(255, "Máximo 255 caracteres."),
+    password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres.").max(100, "Contraseña demasiado larga."),
+    confirmPassword: z.string().min(1, "Confirmar contraseña es requerido."),
+    national_id: z.string().max(50, "Máximo 50 caracteres.").optional().nullable(),
+    status: userStatusEnum.default('active'),
+    birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").optional().nullable(),
+    section_id: z.coerce.number().int().positive("ID de sección inválido.").optional().nullable(),
+    role_ids: z.array(z.coerce.number().int().positive()).optional().default([]), // Array de IDs de roles
+    avatar_url: z.string().url("Debe ser una URL válida.").max(255).optional().nullable(),
+}).refine(data => data.password === data.confirmPassword, {
+    message: "Las contraseñas no coinciden.",
+    path: ["confirmPassword"], // Asocia este error al campo confirmPassword
+});
+
+
+
+
+
+
+
 // Esquema de perfil actualizado
 export const updateProfileSchema = z.object({
     firstName: z.string()

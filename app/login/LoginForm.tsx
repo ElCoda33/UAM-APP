@@ -4,7 +4,6 @@ import { Input } from "@heroui/input"
 import { Button, Checkbox } from "@heroui/react"
 import { useState } from 'react'
 import { redirect } from 'next/navigation'
-import { enqueueSnackbar } from 'notistack'
 
 import { EyeSlashFilledIcon } from '../EyeSlashFilledlcon'
 import { EyeFilledIcon } from '../EyeFilledlcon'

@@ -6,6 +6,8 @@ import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input, Button, Card, CardHeader, CardBody, CardFooter, Link as NextUILink, Divider, CircularProgress } from "@heroui/react";
 import { toast } from "react-hot-toast";
+import { EyeSlashFilledIcon } from "../EyeSlashFilledlcon";
+import { EyeFilledIcon } from "../EyeFilledlcon";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -14,6 +16,9 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status: sessionStatus } = useSession(); // Renombrado para claridad (estado de la sesión)
+  const [isVisible, setIsVisible] = useState(false);
+
+  const toggleVisibility = () => setIsVisible(!isVisible);
 
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard/users";
 
@@ -128,13 +133,26 @@ export default function LoginPage() {
             <Input
               isRequired
               label="Contraseña"
-              type="password"
               value={password}
               onValueChange={setPassword}
               placeholder="Tu contraseña"
               variant="bordered"
               autoComplete="current-password"
               isDisabled={isSubmitting}
+              type={isVisible ? "text" : "password"} endContent={
+                <button
+                  aria-label="toggle password visibility"
+                  className="focus:outline-none"
+                  type="button"
+                  onClick={toggleVisibility}
+                >
+                  {isVisible ? (
+                    <EyeSlashFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                  ) : (
+                    <EyeFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                  )}
+                </button>
+              }
             />
             <Button
               type="submit"
