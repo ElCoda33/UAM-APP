@@ -25,7 +25,7 @@ export const siteConfig = {
 
         {
             label: 'Ubicaciones',
-            href: '/dashboard/places',
+            href: '/dashboard/locations',
         },
     ],
     navMenuItems: [
@@ -49,7 +49,7 @@ export const siteConfig = {
 
         {
             label: 'Ubicaciones',
-            href: '/dashboard/places',
+            href: '/dashboard/locations',
         },
     ],
     links: {

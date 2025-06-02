@@ -42,3 +42,39 @@ export const updateAssetSchema = z.object({
     status: assetStatusEnum.refine(val => val !== null, { message: "El estado es requerido." }),
     image_url: z.string().url("Debe ser una URL válida.").max(255).nullable().optional(),
 });
+
+
+export const sectionSchema = z.object({
+    name: z.string().min(1, "El nombre es requerido.").max(100, "El nombre no puede exceder los 100 caracteres."),
+    management_level: z.coerce.number().int("El nivel debe ser un entero.").min(1, "El nivel de conducción es requerido.").optional().nullable(),
+    email: z.string().email("Email inválido.").max(100, "El email no puede exceder los 100 caracteres.").optional().nullable(),
+    parent_section_id: z.coerce.number().int().positive("ID de sección padre inválido.").optional().nullable(),
+});
+
+export const createSectionSchema = sectionSchema;
+export const updateSectionSchema = sectionSchema.partial(); // Para PUT, todos los campos son opcionales
+
+
+export const companySchema = z.object({
+    tax_id: z.string().min(1, "El RUT/Tax ID es requerido.").max(50, "Máximo 50 caracteres."),
+    legal_name: z.string().min(1, "La Razón Social es requerida.").max(100, "Máximo 100 caracteres."),
+    trade_name: z.string().max(100, "Máximo 100 caracteres.").optional().nullable(),
+    email: z.string().email("Email inválido.").max(100, "Máximo 100 caracteres.").optional().nullable(),
+    phone_number: z.string().max(50, "Máximo 50 caracteres.").optional().nullable(),
+});
+
+export const createCompanySchema = companySchema;
+export const updateCompanySchema = companySchema.partial();
+
+
+export const locationSchema = z.object({ // Renombrado de placeSchema a locationSchema
+    name: z.string().min(1, "El nombre de la ubicación es requerido.").max(100, "Máximo 100 caracteres."),
+    description: z.string().max(255, "Máximo 255 caracteres.").optional().nullable(),
+    section_id: z.coerce.number().int().positive("La sección de dependencia es requerida.").optional().nullable(),
+});
+
+export const createLocationSchema = locationSchema.refine(data => data.section_id !== null && data.section_id !== undefined, {
+    message: "La sección de dependencia es requerida para crear una ubicación.",
+    path: ["section_id"],
+}); // Renombrado de createPlaceSchema
+export const updateLocationSchema = locationSchema.partial(); // Renombrado de updatePlaceSchema

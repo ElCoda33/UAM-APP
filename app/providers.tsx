@@ -5,7 +5,6 @@ import { HeroUIProvider } from "@heroui/system"
 import { useRouter } from 'next/navigation'
 import { ThemeProvider as NextThemesProvider } from 'next-themes'
 import { ThemeProviderProps } from 'next-themes/dist/types'
-import { SnackbarProvider } from 'notistack'
 import { createContext } from 'react'
 import NextAuthProvider from "./providers/nextAuthProvider";
 
@@ -39,7 +38,7 @@ export function Providers({ children, themeProps }: ProvidersProps) {
     return (
 
 
-        <HeroUIProvider navigate={router.push}>
+        <HeroUIProvider locale="es-ES" navigate={router.push}>
             <NextThemesProvider {...themeProps}>
                 <UserContext.Provider value={user}>
                     <NextAuthProvider>
