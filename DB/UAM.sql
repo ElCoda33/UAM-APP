@@ -45,7 +45,7 @@ CREATE TABLE users (
   avatar_url VARCHAR(255) NULL,
   email_verified_at DATETIME NULL,
   national_id VARCHAR(50) UNIQUE NULL, -- 'ci' translated
-  section_id INT UNSIGNED NULL, -- Foreign key to sections table
+  section_id INT UNSIGNED NOT NULL, -- Foreign key to sections table
   status ENUM('active', 'disabled', 'on_vacation', 'pending_approval') DEFAULT 'active',
   birth_date DATE NULL,
   -- 'age' is generally better calculated on the fly rather than stored.

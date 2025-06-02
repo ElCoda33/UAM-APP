@@ -5,11 +5,12 @@ import React, { useEffect, useState, useMemo, Key, useCallback } from 'react';
 import {
     Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
     Input, Button, DropdownTrigger, Dropdown, DropdownMenu, DropdownItem,
-    Chip, User, Pagination, Selection, ChipProps, Spinner, Modal, ModalContent,
-    ModalHeader, ModalBody, useDisclosure, SortDescriptor, Select, SelectItem,
-    DatePicker // Importar DatePicker
+    Chip, User, Pagination, Selection, ChipProps, Spinner,
+    // Modal, ModalContent, ModalHeader, ModalBody, useDisclosure, <--- REMOVED MODAL IMPORTS
+    SortDescriptor, Select, SelectItem,
+    DatePicker
 } from "@heroui/react";
-import { DateValue } from "@internationalized/date"; // Importar DateValue
+import { DateValue } from "@internationalized/date";
 import { useRouter } from 'next/navigation';
 import MoveUpRoundedIcon from '@mui/icons-material/MoveUpRounded';
 import BorderColorRoundedIcon from '@mui/icons-material/BorderColorRounded';
@@ -20,17 +21,16 @@ import { VerticalDotsIcon } from '../icons/VerticalDotsIcon';
 import { SearchIcon } from '../icons/SearchIcon';
 import { ChevronDownIcon } from '../icons/ChevronDownlcon';
 
-import { columns, statusOptions } from './data';
-import { capitalize } from './utils';
+import { columns, statusOptions } from './data'; //
+import { capitalize } from './utils'; //
 
-// Interfaces y helpers (sin cambios IAssetFromAPI, statusColorMap, parseDateStringAsUTC)
-interface IAssetFromAPI { /* ... (definición como antes) ... */
+interface IAssetFromAPI {
     id: number; serial_number: string | null; inventory_code: string; description: string | null; product_name: string; warranty_expiry_date: string | null; current_section_id: number | null; current_section_name: string | null; current_location_id: number | null; current_location_name: string | null; supplier_company_id: number | null; supplier_company_name: string | null; supplier_company_tax_id: string | null; purchase_date: string | null; invoice_number: string | null; acquisition_procedure: string | null; status: 'in_use' | 'in_storage' | 'under_repair' | 'disposed' | 'lost' | null; image_url: string | null; created_at: string; updated_at: string;
 }
-const statusColorMap: Record<string, ChipProps['color']> = { /* ... (como antes) ... */
+const statusColorMap: Record<string, ChipProps['color']> = {
     in_use: 'success', in_storage: 'warning', under_repair: 'secondary', disposed: 'danger', lost: 'default',
 };
-function parseDateStringAsUTC(dateStr: string | null | undefined): Date | null { /* ... (como antes) ... */
+function parseDateStringAsUTC(dateStr: string | null | undefined): Date | null {
     if (!dateStr || typeof dateStr !== 'string' || dateStr.trim() === "") return null;
     const simpleDateMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (simpleDateMatch) {
@@ -49,13 +49,12 @@ function parseDateStringAsUTC(dateStr: string | null | undefined): Date | null {
 
 const INITIAL_VISIBLE_COLUMNS = [
     'product_name', 'serial_number', 'inventory_code', 'current_section_name', 'status',
-    // 'acquisition_procedure', // Descomenta si quieres que sea visible por defecto
     'actions',
 ];
 
 export default function AssetList() {
     const [assets, setAssets] = useState<IAssetFromAPI[]>([]);
-    const [filterValue, setFilterValue] = useState(''); // Para búsqueda de texto
+    const [filterValue, setFilterValue] = useState('');
     const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set([]));
     const [visibleColumns, setVisibleColumns] = useState<Selection>(new Set(INITIAL_VISIBLE_COLUMNS));
     const [statusFilter, setStatusFilter] = useState<Selection>('all');
@@ -64,9 +63,9 @@ export default function AssetList() {
     const [page, setPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
-    const { isOpen, onOpen, onOpenChange, onClose: closeModal } = useDisclosure();
-    const [itemToUpdate, setItemToUpdate] = useState<IAssetFromAPI | undefined>();
-    const [itemToMove, setItemToMove] = useState<IAssetFromAPI | undefined>();
+    // const { isOpen, onOpen, onOpenChange, onClose: closeModal } = useDisclosure(); // <--- REMOVED
+    // const [itemToUpdate, setItemToUpdate] = useState<IAssetFromAPI | undefined>(); // <--- REMOVED
+    // const [itemToMove, setItemToMove] = useState<IAssetFromAPI | undefined>(); // <--- REMOVED
 
     const filterableColumns = useMemo(() => columns.filter(col => col.filterable), []);
     const [selectedFilterAttribute, setSelectedFilterAttribute] = useState<Key>(
@@ -74,22 +73,20 @@ export default function AssetList() {
         (filterableColumns.length > 0 ? filterableColumns[0].uid : "")
     );
 
-    // --- NUEVO: Estado para el filtro de rango de fechas ---
     const [dateRangeFilter, setDateRangeFilter] = useState<{ from: DateValue | null; to: DateValue | null }>({
         from: null,
         to: null,
     });
 
-    // Determinar el tipo de la columna de filtro seleccionada
     const selectedColumnMeta = useMemo(() => {
         return columns.find(col => col.uid === selectedFilterAttribute);
     }, [selectedFilterAttribute]);
 
-    useEffect(() => { /* ... (fetchAssetsFromAPI sin cambios) ... */
+    useEffect(() => {
         const fetchAssetsFromAPI = async () => {
             setIsLoading(true);
             try {
-                const response = await fetch('/api/assets');
+                const response = await fetch('/api/assets'); //
                 if (!response.ok) throw new Error('Error al obtener los activos');
                 const data: IAssetFromAPI[] = await response.json();
                 setAssets(data);
@@ -102,21 +99,18 @@ export default function AssetList() {
     const hasSearchTextFilter = Boolean(filterValue.trim());
     const hasDateRangeFilter = Boolean(dateRangeFilter.from || dateRangeFilter.to);
 
-    const headerColumns = useMemo(() => { /* ... (sin cambios) ... */
+    const headerColumns = useMemo(() => {
         if (visibleColumns === 'all') return columns;
         return columns.filter((column) => Array.from(visibleColumns).includes(column.uid));
     }, [visibleColumns]);
 
-    // --- LÓGICA DE FILTRADO ACTUALIZADA ---
     const filteredItems = useMemo(() => {
         let filteredAssets = [...assets];
 
-        // Filtrado por Atributo de Texto o Fecha
         if (selectedFilterAttribute) {
             const columnType = columns.find(col => col.uid === selectedFilterAttribute)?.type;
 
             if (columnType === 'date' && hasDateRangeFilter) {
-                // Filtrado por Rango de Fechas
                 filteredAssets = filteredAssets.filter(asset => {
                     const assetDateStr = asset[selectedFilterAttribute as keyof IAssetFromAPI] as string | null;
                     if (!assetDateStr) return false;
@@ -131,7 +125,6 @@ export default function AssetList() {
                         }
                     }
                     if (dateRangeFilter.to && inRange) {
-                        // Para que 'to' sea inclusivo, comparamos con el inicio del día siguiente
                         const nextDayAfterTo = new Date(Date.UTC(dateRangeFilter.to.year, dateRangeFilter.to.month - 1, dateRangeFilter.to.day + 1));
                         if (assetDate.getTime() >= nextDayAfterTo.getTime()) {
                             inRange = false;
@@ -140,7 +133,6 @@ export default function AssetList() {
                     return inRange;
                 });
             } else if (columnType !== 'date' && hasSearchTextFilter) {
-                // Filtrado por Texto
                 const searchTerm = filterValue.toLowerCase();
                 filteredAssets = filteredAssets.filter((asset) => {
                     let attributeValue: any;
@@ -165,7 +157,6 @@ export default function AssetList() {
             }
         }
 
-        // Filtrado por estado (dropdown) - se aplica después del filtro anterior
         if (statusFilter !== 'all' && Array.from(statusFilter).length !== statusOptions.length) {
             filteredAssets = filteredAssets.filter((asset) =>
                 Array.from(statusFilter).includes(asset.status!)
@@ -175,12 +166,13 @@ export default function AssetList() {
     }, [assets, filterValue, selectedFilterAttribute, statusFilter, hasSearchTextFilter, dateRangeFilter, hasDateRangeFilter]);
 
     const pages = Math.ceil(filteredItems.length / rowsPerPage);
-    const itemsToDisplay = useMemo(() => { /* ... (sin cambios) ... */
+    const itemsToDisplay = useMemo(() => {
         const start = (page - 1) * rowsPerPage;
         const end = start + rowsPerPage;
         return filteredItems.slice(start, end);
     }, [page, filteredItems, rowsPerPage]);
-    const sortedItems = useMemo(() => { /* ... (sin cambios) ... */
+
+    const sortedItems = useMemo(() => {
         return [...itemsToDisplay].sort((a, b) => {
             let firstValue: any, secondValue: any;
             const col = sortDescriptor.column as keyof IAssetFromAPI;
@@ -200,11 +192,21 @@ export default function AssetList() {
             return sortDescriptor.direction === 'descending' ? -cmp : cmp;
         });
     }, [sortDescriptor, itemsToDisplay]);
-    const renderCell = useCallback((asset: IAssetFromAPI, columnKey: Key): React.ReactNode => { /* ... (sin cambios, pero asegúrate que 'acquisition_procedure' se renderice bien si es visible) ... */
+
+    const renderCell = useCallback((asset: IAssetFromAPI, columnKey: Key): React.ReactNode => {
         const cellValue = asset[columnKey as keyof IAssetFromAPI];
-        const handleUpdate = () => { setItemToMove(undefined); setItemToUpdate(asset); onOpen(); };
-        const handleMove = () => { setItemToUpdate(undefined); setItemToMove(asset); onOpen(); };
-        const handleMovements = () => { router.push(`/dashboard/assets/movements?q=${asset.serial_number || asset.inventory_code}`); };
+
+        // MODIFIED: Handlers now navigate instead of opening modal
+        const handleUpdate = () => {
+            router.push(`/dashboard/assets/${asset.id}/edit`);
+        };
+        const handleMove = () => {
+            // Assuming a move page route, adjust if necessary
+            router.push(`/dashboard/assets/${asset.id}/move`);
+        };
+        const handleMovements = () => {
+            router.push(`/dashboard/assets/${asset.id}/history`); // Actualizar ruta
+        };
 
         switch (columnKey) {
             case 'product_name':
@@ -217,13 +219,12 @@ export default function AssetList() {
                 return date ? date.toLocaleDateString(undefined, { timeZone: 'UTC' }) : "N/A";
             case 'actions':
                 return (
-                    /* ... (acciones sin cambios) ... */
                     <div className="relative flex justify-end items-center gap-2">
                         <Dropdown><DropdownTrigger><Button isIconOnly size="sm" variant="light"><VerticalDotsIcon className="text-default-300" /></Button></DropdownTrigger>
                             <DropdownMenu aria-label={`Acciones para ${asset.product_name}`}>
-                                <DropdownItem startContent={<BorderColorRoundedIcon fontSize="small" />} onClick={handleUpdate}>Editar</DropdownItem>
-                                <DropdownItem startContent={<MoveUpRoundedIcon fontSize="small" />} onClick={handleMove}>Mover</DropdownItem>
-                                <DropdownItem startContent={<FormatListBulletedIcon fontSize="small" />} onClick={handleMovements}>Movimientos</DropdownItem>
+                                <DropdownItem startContent={<BorderColorRoundedIcon fontSize="small" />} onPress={handleUpdate}>Editar</DropdownItem>
+                                <DropdownItem startContent={<MoveUpRoundedIcon fontSize="small" />} onPress={handleMove}>Mover</DropdownItem>
+                                <DropdownItem startContent={<FormatListBulletedIcon fontSize="small" />} onPress={handleMovements}>Movimientos</DropdownItem>
                             </DropdownMenu>
                         </Dropdown>
                     </div>
@@ -231,7 +232,8 @@ export default function AssetList() {
             default:
                 return cellValue !== null && cellValue !== undefined ? String(cellValue) : "N/A";
         }
-    }, [router, onOpen]);
+    }, [router]); // Removed onOpen from dependencies
+
     const onNextPage = useCallback(() => { if (page < pages) setPage(page + 1); }, [page, pages]);
     const onPreviousPage = useCallback(() => { if (page > 1) setPage(page - 1); }, [page]);
     const onRowsPerPageChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => { setRowsPerPage(Number(e.target.value)); setPage(1); }, []);
@@ -247,7 +249,6 @@ export default function AssetList() {
         return (
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col sm:flex-row justify-between gap-3 items-end">
-                    {/* --- FILTROS DE BÚSQUEDA Y ATRIBUTO --- */}
                     <div className="flex flex-col xs:flex-row gap-3 w-full xs:w-auto items-end flex-grow md:flex-grow-0">
                         <Select
                             aria-label="Filtrar por atributo"
@@ -258,7 +259,6 @@ export default function AssetList() {
                                 const newKey = Array.from(keys as Set<Key>)[0];
                                 const newSelectedAttribute = newKey || (filterableColumns.length > 0 ? filterableColumns[0].uid : "");
                                 setSelectedFilterAttribute(newSelectedAttribute);
-                                // Limpiar el otro tipo de filtro al cambiar atributo
                                 const newColumn = columns.find(col => col.uid === newSelectedAttribute);
                                 if (newColumn?.type === 'date') {
                                     setFilterValue("");
@@ -276,7 +276,6 @@ export default function AssetList() {
                             ))}
                         </Select>
 
-                        {/* Renderizado condicional del input de texto o los DatePickers */}
                         {selectedColumnMeta?.type === 'date' ? (
                             <div className="flex flex-col xs:flex-row gap-3 w-full xs:w-auto">
                                 <DatePicker
@@ -285,7 +284,7 @@ export default function AssetList() {
                                     onChange={(date) => setDateRangeFilter(prev => ({ ...prev, from: date }))}
                                     maxValue={dateRangeFilter.to || undefined}
                                     className="w-full xs:w-auto"
-                                    size="sm" // Un poco más pequeño para que quepan mejor
+                                    size="sm"
                                     granularity="day"
                                     showMonthAndYearPickers
                                 />
@@ -316,7 +315,6 @@ export default function AssetList() {
                     </div>
 
                     <div className="flex gap-3 flex-wrap justify-end sm:justify-start w-full sm:w-auto">
-                        {/* ... (Dropdowns de Estado y Columnas, y Botón Agregar sin cambios) ... */}
                         <Dropdown>
                             <DropdownTrigger><Button endContent={<ChevronDownIcon className="text-small" />} variant="flat">Estado</Button></DropdownTrigger>
                             <DropdownMenu disallowEmptySelection aria-label="Filtrar por Estado" closeOnSelect={false} selectedKeys={statusFilter} selectionMode="multiple" onSelectionChange={setStatusFilter}>
@@ -332,7 +330,6 @@ export default function AssetList() {
                         <Button color="primary" endContent={<PlusIcon />} onClick={() => router.push('/dashboard/assets/add')}>Agregar Activo</Button>
                     </div>
                 </div>
-                {/* ... (contador de items y selector de filas por página sin cambios) ... */}
                 <div className="flex justify-between items-center">
                     <span className="text-default-400 text-small">Total {assets.length} activos. {filteredItems.length !== assets.length ? `${filteredItems.length} coinciden.` : ''}</span>
                     <label className="flex items-center text-default-400 text-small">Filas por página:
@@ -346,10 +343,10 @@ export default function AssetList() {
     }, [
         filterValue, statusFilter, visibleColumns, onSearchChange, onRowsPerPageChange, assets.length, router,
         onClearSearchOrDate, filteredItems.length, rowsPerPage, selectedFilterAttribute, filterableColumns,
-        dateRangeFilter, selectedColumnMeta // Añadir dependencias nuevas
+        dateRangeFilter, selectedColumnMeta
     ]);
 
-    const bottomContent = useMemo(() => { /* ... (sin cambios) ... */
+    const bottomContent = useMemo(() => {
         return (
             <div className="py-2 px-2 flex justify-between items-center">
                 <span className="w-[30%] text-small text-default-400">
@@ -363,11 +360,10 @@ export default function AssetList() {
             </div>
         );
     }, [selectedKeys, page, pages, filteredItems.length, onPreviousPage, onNextPage]);
-    const ModalContentComponent = useMemo(() => { /* ... (sin cambios) ... */
-        if (itemToUpdate) { return (<> <ModalHeader className="flex flex-col">Actualizar Activo</ModalHeader> <ModalBody> <p>Formulario para actualizar activo ID: {itemToUpdate.id} (PENDIENTE)</p> </ModalBody> </>); }
-        if (itemToMove) { return (<> <ModalHeader className="flex flex-col">Mover Activo</ModalHeader> <ModalBody> <p>Formulario para mover activo ID: {itemToMove.id} (PENDIENTE)</p> </ModalBody> </>); }
-        return null;
-    }, [itemToUpdate, itemToMove]);
+
+    // const ModalContentComponent = useMemo(() => { // <--- REMOVED
+    //     // ...
+    // }, [itemToUpdate, itemToMove]);
 
     return (
         <div className="flex flex-col gap-4">
@@ -385,7 +381,6 @@ export default function AssetList() {
                     onSortChange={setSortDescriptor}
                     classNames={{
                         table: "min-w-[700px]",
-                        // Eliminada la clase wrapper max-h-[...]
                     }}
                 >
                     <TableHeader columns={headerColumns}>
@@ -418,11 +413,13 @@ export default function AssetList() {
                     </TableBody>
                 </Table>
             </div>
+            {/* REMOVED MODAL USAGE
             {(itemToUpdate || itemToMove) && (
                 <Modal backdrop="blur" isOpen={isOpen} placement="top-center" scrollBehavior="outside" onOpenChange={onOpenChange} onClose={closeModal}>
                     <ModalContent>{ModalContentComponent}</ModalContent>
                 </Modal>
             )}
+            */}
         </div>
     );
 }

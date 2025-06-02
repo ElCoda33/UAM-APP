@@ -24,3 +24,21 @@ export const changePasswordSchema = z.object({
     // El path asegura que este error del refine se asocie con confirmPassword
     path: ["confirmPassword"],
 });
+
+const assetStatusEnum = z.enum(['in_use', 'in_storage', 'under_repair', 'disposed', 'lost']);
+
+export const updateAssetSchema = z.object({
+    product_name: z.string().min(1, "El nombre del producto es requerido.").max(100, "Máximo 100 caracteres."),
+    serial_number: z.string().max(100, "Máximo 100 caracteres.").nullable().optional(),
+    inventory_code: z.string().min(1, "El código de inventario es requerido.").max(200, "Máximo 200 caracteres."),
+    description: z.string().max(1000, "Máximo 1000 caracteres.").nullable().optional(),
+    current_section_id: z.number({ required_error: "La sección es requerida." }).int().positive(),
+    current_location_id: z.number().int().positive().nullable().optional(),
+    supplier_company_id: z.number().int().positive().nullable().optional(),
+    purchase_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").nullable().optional(),
+    invoice_number: z.string().max(50, "Máximo 50 caracteres.").nullable().optional(),
+    warranty_expiry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").nullable().optional(),
+    acquisition_procedure: z.string().max(200, "Máximo 200 caracteres.").nullable().optional(),
+    status: assetStatusEnum.refine(val => val !== null, { message: "El estado es requerido." }),
+    image_url: z.string().url("Debe ser una URL válida.").max(255).nullable().optional(),
+});

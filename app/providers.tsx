@@ -40,17 +40,13 @@ export function Providers({ children, themeProps }: ProvidersProps) {
 
 
         <HeroUIProvider navigate={router.push}>
-            <SnackbarProvider maxSnack={3}>
-                <NextThemesProvider {...themeProps}>
-                    <UserContext.Provider value={user}>
-                        <NextAuthProvider>
-
-                            {children}
-
-                        </NextAuthProvider>
-                    </UserContext.Provider>
-                </NextThemesProvider>
-            </SnackbarProvider>
+            <NextThemesProvider {...themeProps}>
+                <UserContext.Provider value={user}>
+                    <NextAuthProvider>
+                        {children}
+                    </NextAuthProvider>
+                </UserContext.Provider>
+            </NextThemesProvider>
         </HeroUIProvider>
     )
 }
