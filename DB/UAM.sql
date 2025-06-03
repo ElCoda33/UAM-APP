@@ -205,6 +205,74 @@ CREATE TABLE asset_transfers (
   CONSTRAINT fk_at_rec_user FOREIGN KEY (received_by_user_id) REFERENCES users (id) ON DELETE SET NULL ON UPDATE CASCADE
 );
 
+
+CREATE TABLE software_licenses (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  asset_id INT UNSIGNED NULL,                     -- Vínculo al bien/activo al que se aplica esta licencia (si aplica directamente)
+  software_name VARCHAR(255) NOT NULL,            -- Nombre del software (ej: Microsoft Office 2021 Pro, Windows Server 2022 STD)
+  software_version VARCHAR(100) NULL,             -- Versión del software (ej: 2021, 11.2.1, SP2)
+  license_key VARCHAR(255) NULL,                  -- La clave de la licencia o número de serie del software. Puede ser NULL si es una licencia general.
+  license_type ENUM(
+    'oem', 
+    'retail', 
+    'volume_mak', 
+    'volume_kms', 
+    'subscription_user', 
+    'subscription_device', 
+    'concurrent', 
+    'freeware', 
+    'open_source', 
+    'other'
+  ) NOT NULL DEFAULT 'other',                     -- Tipo de licencia
+  seats INT UNSIGNED NOT NULL DEFAULT 1,          -- Número de instalaciones/usuarios cubiertos por esta licencia
+  purchase_date DATE NULL,                        -- Fecha de compra de la licencia
+  purchase_cost DECIMAL(10,2) NULL,               -- Costo de adquisición de la licencia
+  expiry_date DATE NULL,                          -- Fecha de vencimiento de la licencia (para suscripciones)
+  supplier_company_id INT UNSIGNED NULL,          -- Empresa proveedora de la licencia
+  invoice_number VARCHAR(100) NULL,               -- Número de factura de la compra de la licencia
+  assigned_to_user_id INT UNSIGNED NULL,          -- Usuario al que está asignada la licencia (si es una licencia por usuario)
+  notes TEXT NULL,                                -- Notas adicionales sobre la licencia
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL DEFAULT NULL,         -- Para eliminación lógica
+
+  CONSTRAINT fk_sl_asset
+    FOREIGN KEY (asset_id)
+    REFERENCES assets (id)
+    ON DELETE SET NULL                           -- Si se elimina el activo, la licencia queda desvinculada (o podría ser RESTRICT)
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_sl_supplier_company
+    FOREIGN KEY (supplier_company_id)
+    REFERENCES companies (id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_sl_assigned_user
+    FOREIGN KEY (assigned_to_user_id)
+    REFERENCES users (id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+  
+  INDEX idx_sl_asset_id (asset_id),
+  INDEX idx_sl_software_name (software_name),
+  INDEX idx_sl_license_key (license_key),
+  INDEX idx_sl_expiry_date (expiry_date),
+  INDEX idx_sl_supplier_company_id (supplier_company_id),
+  INDEX idx_sl_assigned_to_user_id (assigned_to_user_id),
+  INDEX idx_sl_deleted_at (deleted_at)
+);
+
+-- Nota sobre UNIQUE para 'software_licenses.license_key':
+-- Al igual que con otros campos en el esquema, una clave de licencia (`license_key`)
+-- debería ser idealmente única entre los registros activos (deleted_at IS NULL).
+-- Se puede manejar a nivel de aplicación o con un constraint UNIQUE compuesto
+-- si la base de datos lo soporta adecuadamente con valores NULL en `deleted_at`
+-- (ej. `UNIQUE(license_key, deleted_at_coalesced_value)` donde los activos tienen un valor placeholder para `deleted_at`).
+-- Por simplicidad, y siguiendo el patrón del esquema, la unicidad de `license_key`
+-- para registros activos se asumiría manejada por la lógica de la aplicación al crear/actualizar.
+-- Si `license_key` puede ser NULL (ej. para licencias de sitio donde no hay una clave individual),
+-- un constraint UNIQUE directo necesitaría consideraciones especiales.
+
+
 -- -----------------------------------------------------
 -- Datos para `sections`
 -- -----------------------------------------------------

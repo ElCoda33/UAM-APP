@@ -12,27 +12,6 @@ export const userStatusEnum = z.enum(['active', 'disabled', 'on_vacation', 'pend
     invalid_type_error: "Estado no válido.",
 });
 
-export const createUserSchema = z.object({
-    first_name: z.string().max(100, "Máximo 100 caracteres.").optional().nullable(),
-    last_name: z.string().max(100, "Máximo 100 caracteres.").optional().nullable(),
-    email: z.string().min(1, "El email es requerido.").email("Email inválido.").max(255, "Máximo 255 caracteres."),
-    password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres.").max(100, "Contraseña demasiado larga."),
-    confirmPassword: z.string().min(1, "Confirmar contraseña es requerido."),
-    national_id: z.string().max(50, "Máximo 50 caracteres.").optional().nullable(),
-    status: userStatusEnum.default('active'),
-    birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").optional().nullable(),
-    section_id: z.coerce.number().int().positive("ID de sección inválido.").optional().nullable(),
-    role_ids: z.array(z.coerce.number().int().positive()).optional().default([]), // Array de IDs de roles
-    avatar_url: z.string().url("Debe ser una URL válida.").max(255).optional().nullable(),
-}).refine(data => data.password === data.confirmPassword, {
-    message: "Las contraseñas no coinciden.",
-    path: ["confirmPassword"], // Asocia este error al campo confirmPassword
-});
-
-
-
-
-
 
 
 // Esquema de perfil actualizado
@@ -172,3 +151,83 @@ export interface IAssetAPI extends RowDataPacket {
     updated_at: string; // Formato ISO string
     // deleted_at?: string | null; // Si eventualmente implementas soft delete para assets
 }
+
+
+
+// Enum para los tipos de licencia de software
+export const softwareLicenseTypeEnum = z.enum([
+    'oem',
+    'retail',
+    'volume_mak',
+    'volume_kms',
+    'subscription_user',
+    'subscription_device',
+    'concurrent',
+    'freeware',
+    'open_source',
+    'other'
+], {
+    required_error: "El tipo de licencia es requerido.",
+    invalid_type_error: "Tipo de licencia no válido.",
+});
+
+// Schema base para una licencia de software
+export const softwareLicenseSchemaBase = z.object({
+    asset_id: z.coerce.number().int().positive("ID de activo inválido.").nullable().optional(),
+    software_name: z.string().min(1, "El nombre del software es requerido.").max(255, "Máximo 255 caracteres."),
+    software_version: z.string().max(100, "Máximo 100 caracteres.").nullable().optional(),
+    license_key: z.string().max(255, "Máximo 255 caracteres.").nullable().optional(),
+    license_type: softwareLicenseTypeEnum,
+    seats: z.coerce.number().int().min(1, "Debe haber al menos 1 puesto.").default(1),
+    purchase_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").nullable().optional(),
+    purchase_cost: z.coerce.number().min(0, "El costo no puede ser negativo.").nullable().optional(),
+    expiry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").nullable().optional(),
+    supplier_company_id: z.coerce.number().int().positive("ID de proveedor inválido.").nullable().optional(),
+    invoice_number: z.string().max(100, "Máximo 100 caracteres.").nullable().optional(),
+    assigned_to_user_id: z.coerce.number().int().positive("ID de usuario inválido.").nullable().optional(),
+    notes: z.string().max(65535, "Notas demasiado largas.").nullable().optional(),
+});
+
+// Schema para crear una nueva licencia de software
+export const createSoftwareLicenseSchema = softwareLicenseSchemaBase;
+
+// Schema para actualizar una licencia de software (todos los campos son opcionales)
+export const updateSoftwareLicenseSchema = softwareLicenseSchemaBase.partial().refine(data => {
+    // Asegurarse de que al menos un campo se proporcione para la actualización
+    return Object.keys(data).length > 0;
+}, { message: "Se debe proporcionar al menos un campo para actualizar." });
+
+
+export const createUserSchema = z.object({
+    first_name: z.string().max(100, "Máximo 100 caracteres.").optional().nullable(),
+    last_name: z.string().max(100, "Máximo 100 caracteres.").optional().nullable(),
+    email: z.string().min(1, "El email es requerido.").email("Email inválido.").max(255, "Máximo 255 caracteres."),
+    password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres.").max(100, "Contraseña demasiado larga."),
+    confirmPassword: z.string().min(1, "Confirmar contraseña es requerido."),
+    national_id: z.string().max(50, "Máximo 50 caracteres.").optional().nullable(),
+    status: userStatusEnum.default('active'), // El enum ya existe
+    birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").nullable().optional(), // Asegurar que el DatePicker envíe este formato
+    section_id: z.coerce.number().int().positive("ID de sección inválido.").nullable().optional(),
+    role_ids: z.array(z.coerce.number().int().positive()).optional().default([]), // Array de IDs de roles
+    avatar_url: z.string().url("Debe ser una URL válida.").max(255).nullable().optional(),
+}).refine(data => data.password === data.confirmPassword, {
+    message: "Las contraseñas no coinciden.",
+    path: ["confirmPassword"],
+});
+
+// Nuevo: Schema para actualizar un usuario (por un administrador)
+// No se permite cambiar la contraseña directamente aquí.
+export const updateUserSchema = z.object({
+    first_name: z.string().max(100, "Máximo 100 caracteres.").optional().nullable(),
+    last_name: z.string().max(100, "Máximo 100 caracteres.").optional().nullable(),
+    email: z.string().email("Email inválido.").max(255, "Máximo 255 caracteres.").optional(), // Email es opcional al actualizar, pero si se provee, debe ser válido
+    national_id: z.string().max(50, "Máximo 50 caracteres.").optional().nullable(),
+    status: userStatusEnum.optional(),
+    birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").nullable().optional(),
+    section_id: z.coerce.number().int().positive("ID de sección inválido.").nullable().optional(),
+    role_ids: z.array(z.coerce.number().int().positive()).optional(), // No default([]), para que si no se envía, no se modifiquen roles
+    avatar_url: z.string().url("Debe ser una URL válida.").max(255).nullable().optional(),
+}).refine(data => {
+    // Asegurarse de que al menos un campo se proporcione para la actualización
+    return Object.keys(data).length > 0;
+}, { message: "Se debe proporcionar al menos un campo para actualizar." });

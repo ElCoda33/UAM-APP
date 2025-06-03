@@ -1,4 +1,4 @@
-import AssetList from '@/components/assetList/assetList'
+import AssetList from '@/app/dashboard/assets/components/assetList'
 
 const Page = () => {
     return (
