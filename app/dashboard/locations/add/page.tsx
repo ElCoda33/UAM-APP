@@ -13,8 +13,8 @@ import {
     Link as NextUILink,
     Divider,
     Textarea,
-    Select, // Cambiado de Autocomplete a Select
-    SelectItem // Cambiado de AutocompleteItem a SelectItem
+    Autocomplete, // Cambiado a Autocomplete
+    AutocompleteItem // Cambiado a AutocompleteItem
 } from "@heroui/react";
 import { toast } from "react-hot-toast";
 import { ArrowLeftIcon } from "@/components/icons/ArrowLeftIcon";
@@ -75,7 +75,7 @@ export default function AddLocationPage() {
         }
     };
 
-    // Modificado para manejar el evento de HeroUI/NextUI Select
+    // Esta función ya está preparada para recibir Key | null, que es lo que Autocomplete devuelve.
     const handleSectionSelectChange = (selectedKey: Key | null) => {
         const fieldName = 'section_id';
         setFormData(prev => ({ ...prev, [fieldName]: selectedKey ? Number(selectedKey) : undefined }));
@@ -182,13 +182,13 @@ export default function AddLocationPage() {
                             isInvalid={!!errors?.description?._errors.length}
                             errorMessage={errors?.description?._errors.join(", ")}
                         />
-                        <Select
+                        <Autocomplete // Cambiado de Select a Autocomplete
                             name="section_id"
                             label="Dependencia (Sección)"
-                            placeholder="Seleccionar sección de dependencia"
+                            placeholder="Buscar y seleccionar sección..." // Placeholder actualizado
                             items={allSections}
-                            selectedKeys={formData.section_id ? [String(formData.section_id)] : []}
-                            onSelectionChange={(keys) => handleSectionSelectChange(Array.from(keys as Set<Key>)[0])}
+                            selectedKey={formData.section_id ? String(formData.section_id) : null} // selectedKey (singular) para Autocomplete
+                            onSelectionChange={handleSectionSelectChange} // La función ya es compatible
                             variant="bordered"
                             isRequired // createLocationSchema lo hace requerido a través del .refine()
                             isDisabled={isSubmitting || isLoadingSections}
@@ -196,13 +196,15 @@ export default function AddLocationPage() {
                             isInvalid={!!errors?.section_id?._errors.length}
                             errorMessage={errors?.section_id?._errors.join(", ")}
                             description="La sección a la que pertenece o está asociada esta ubicación."
+                            allowsCustomValue={false} // Evita valores personalizados
+                            onClear={() => handleSectionSelectChange(null)} // Permite limpiar la selección
                         >
                             {(section) => (
-                                <SelectItem key={section.id} textValue={section.name}>
+                                <AutocompleteItem key={section.id} textValue={section.name}> {/* Cambiado a AutocompleteItem */}
                                     {section.name} (ID: {section.id})
-                                </SelectItem>
+                                </AutocompleteItem>
                             )}
-                        </Select>
+                        </Autocomplete>
 
                         <div className="flex justify-end gap-3 pt-4">
                             <Button variant="flat" onPress={() => router.push("/dashboard/locations")} isDisabled={isSubmitting} type="button">

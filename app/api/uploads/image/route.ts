@@ -6,10 +6,8 @@ import fs from 'fs/promises';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
-// Define el directorio de subida y el prefijo de la URL pública
-// Puedes ajustarlos según tu estructura y preferencias
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'avatars');
-const PUBLIC_PATH_PREFIX = '/uploads/avatars/'; // Esta será la parte de la URL pública
+const PUBLIC_PATH_PREFIX = '/uploads/avatars/';
 
 async function ensureUploadDirExists() {
   try {
@@ -45,18 +43,17 @@ export async function POST(request: NextRequest) {
 
   try {
     const formData = await request.formData();
-    const file = formData.get('imageFile') as File | null; // El nombre del campo en FormData
+    const file = formData.get('imageFile') as File | null;
 
     if (!file) {
       return NextResponse.json({ message: 'No se proporcionó ningún archivo.' }, { status: 400 });
     }
 
-    // Validaciones (tipo, tamaño)
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json({ message: 'Tipo de archivo no permitido (solo JPG, PNG, WEBP, GIF).' }, { status: 400 });
     }
-    const maxSizeInBytes = 5 * 1024 * 1024; // 5MB (ajusta según necesidad)
+    const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSizeInBytes) {
       return NextResponse.json({ message: `El archivo es demasiado grande (máx ${maxSizeInBytes / (1024 * 1024)}MB).` }, { status: 400 });
     }
@@ -64,12 +61,32 @@ export async function POST(request: NextRequest) {
     const fileExtension = path.extname(file.name) || `.${file.type.split('/')[1]}`;
     const uniqueFilename = `${uuidv4()}${fileExtension}`;
     const filePath = path.join(UPLOAD_DIR, uniqueFilename);
-    const imageUrl = `${PUBLIC_PATH_PREFIX}${uniqueFilename}`; // URL pública relativa
 
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
-    await fs.writeFile(filePath, fileBuffer);
+    // ---- INICIO DE LA MODIFICACIÓN ----
+    // Obtener la URL base de la solicitud actual o de una variable de entorno
+    const protocol = request.headers.get('x-forwarded-proto') || (process.env.NODE_ENV === "production" ? "https" : "http");
+    const host = request.headers.get('host'); // Esto debería incluir el puerto si no es estándar
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL; // Intenta usar una variable de entorno primero
 
-    return NextResponse.json({ message: 'Imagen subida correctamente.', imageUrl }, { status: 200 });
+    if (!baseUrl && host) {
+      baseUrl = `${protocol}://${host}`;
+    } else if (!baseUrl) {
+      // Fallback si no se puede determinar el host (ej. en entornos serverless sin 'host' header o variable de entorno)
+      // ¡DEBES configurar NEXT_PUBLIC_APP_URL en tu entorno para producción!
+      console.warn("Advertencia: No se pudo determinar la URL base completa. Usando ruta relativa. Configura NEXT_PUBLIC_APP_URL.");
+      // Si no se puede determinar la URL base, devolvemos la ruta relativa como antes,
+      // pero esto no es ideal y fallará la validación Zod de URL en el schema.
+      const relativeImageUrl = `${PUBLIC_PATH_PREFIX}${uniqueFilename}`;
+      await fs.writeFile(filePath, Buffer.from(await file.arrayBuffer()));
+      return NextResponse.json({ message: 'Imagen subida correctamente (URL relativa).', imageUrl: relativeImageUrl }, { status: 200 });
+    }
+
+    const absoluteImageUrl = `${baseUrl}${PUBLIC_PATH_PREFIX}${uniqueFilename}`;
+    // ---- FIN DE LA MODIFICACIÓN ----
+
+    await fs.writeFile(filePath, Buffer.from(await file.arrayBuffer()));
+
+    return NextResponse.json({ message: 'Imagen subida correctamente.', imageUrl: absoluteImageUrl }, { status: 200 });
 
   } catch (error: any) {
     console.error('Error subiendo imagen genérica:', error);
