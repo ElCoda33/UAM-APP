@@ -1,4 +1,4 @@
-import NavBar from '@/components/navbar'
+import NavBar from '@/components/AppNavbar'
 
 export default async function Layout({
     children,
