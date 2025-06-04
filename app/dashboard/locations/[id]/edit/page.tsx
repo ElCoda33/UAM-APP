@@ -241,7 +241,7 @@ export default function EditLocationPage() {
                             name="section_id"
                             label="Dependencia (Sección)"
                             placeholder="Seleccionar sección de dependencia"
-                            items={allSections}
+                            defaultItems={allSections}
                             selectedKey={formData.section_id ? String(formData.section_id) : null}
                             onSelectionChange={(key) => handleSelectChange('section_id', key as Key | null)}
                             variant="bordered"

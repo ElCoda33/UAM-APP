@@ -33,6 +33,7 @@ export default function AppNavbar() {
     const isAuthenticated = sessionStatus === "authenticated";
     const isLoadingSession = sessionStatus === "loading";
 
+    const dashboardHomePath = '/dashboard'
     const userDisplayName = useMemo(() => {
         if (!session?.user) return "Usuario";
         const { name, firstName, lastName, email } = session.user;
@@ -87,13 +88,17 @@ export default function AppNavbar() {
 
             <NavbarContent className="sm:hidden pr-3" justify="center">
                 <NavbarBrand>
-                    <p className="font-bold text-inherit">UAM</p>
+                    <HeroUILink href={dashboardHomePath} onClick={() => router.push(dashboardHomePath)} color="foreground" className="font-bold text-inherit">
+                        UAM
+                    </HeroUILink>
                 </NavbarBrand>
             </NavbarContent>
 
             <NavbarContent className="hidden sm:flex gap-4" justify="start">
                 <NavbarBrand className="mr-4">
-                    <p className="font-bold text-inherit">UAM</p>
+                    <HeroUILink href={dashboardHomePath} onClick={() => router.push(dashboardHomePath)} color="foreground" className="font-bold text-inherit">
+                        UAM
+                    </HeroUILink>
                 </NavbarBrand>
                 {menuItems.map((item) => {
                     const isActive = isNavItemActive(item.href);
