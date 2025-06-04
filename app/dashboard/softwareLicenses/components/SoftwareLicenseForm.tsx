@@ -210,7 +210,7 @@ export default function SoftwareLicenseForm({
         // ya que el PUT en la API puede manejar campos parciales o el schema de Zod `update` lo hará.
         // Para el cliente, es más simple validar contra el schema completo y enviar solo lo cambiado
         // o dejar que la API maneje qué campos actualizar. Por ahora validaremos contra el schema de creación/base.
-        const validationResult = createSoftwareLicenseSchema.safeParse(dataToValidate);
+        const validationResult = createSoftwareLicenseSchema.safeParse(dataToValidate); //
 
         if (!validationResult.success) {
             const flatErrors: Partial<Record<keyof SoftwareLicenseFormData, string>> = {};
@@ -264,7 +264,7 @@ export default function SoftwareLicenseForm({
         <form onSubmit={handleSubmit} className="space-y-6">
             <Autocomplete
                 label="Activo Vinculado (Opcional)"
-                placeholder="Buscar activo..."
+                placeholder="Buscar activo por ID o nombre..." // Actualizado placeholder
                 items={assets}
                 selectedKey={formData.asset_id ? String(formData.asset_id) : null}
                 onSelectionChange={(key) => handleSelectChange('asset_id', key)}
@@ -277,7 +277,13 @@ export default function SoftwareLicenseForm({
                 onClear={() => handleSelectChange('asset_id', null)}
                 name="asset_id"
             >
-                {(item) => <AutocompleteItem key={item.id} textValue={item.name}>{item.name}</AutocompleteItem>}
+                {(item) => (
+                    // Modificación aquí: textValue ahora es el ID para la búsqueda.
+                    // El contenido del AutocompleteItem muestra ID y nombre.
+                    <AutocompleteItem key={item.id} textValue={String(item.id)}>
+                        {`ID: ${item.id} - ${item.name}`}
+                    </AutocompleteItem>
+                )}
             </Autocomplete>
 
             <Input
@@ -368,7 +374,7 @@ export default function SoftwareLicenseForm({
                     showMonthAndYearPickers
                 />
             </div>
-             <Input
+            <Input
                 name="purchase_cost"
                 type="number"
                 label="Costo de Compra (Opcional)"
