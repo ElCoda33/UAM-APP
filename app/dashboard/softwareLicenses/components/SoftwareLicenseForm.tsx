@@ -262,24 +262,24 @@ export default function SoftwareLicenseForm({
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
+
             <Autocomplete
-                label="Activo Vinculado (Opcional)"
-                placeholder="Buscar activo..."
-                items={assets}
                 selectedKey={formData.asset_id ? String(formData.asset_id) : null}
+                allowsCustomValue={false}
                 onSelectionChange={(key) => handleSelectChange('asset_id', key)}
-                variant="bordered"
+                onClear={() => handleSelectChange('asset_id', null)}
                 isDisabled={isSubmitting || isLoadingDropdowns}
                 isLoading={isLoadingDropdowns}
                 isInvalid={!!errors.asset_id}
                 errorMessage={errors.asset_id}
-                allowsCustomValue={false}
-                onClear={() => handleSelectChange('asset_id', null)}
+                variant="bordered"
+                label="Activo Vinculado (Opcional)"
+                placeholder="Buscar activo..."
+                defaultItems={assets}
                 name="asset_id"
             >
-                {(item) => <AutocompleteItem key={item.id} textValue={item.name}>{item.name}</AutocompleteItem>}
+                {(item) => <AutocompleteItem key={item.id}>{item.name}</AutocompleteItem>}
             </Autocomplete>
-
             <Input
                 name="software_name"
                 label="Nombre del Software"
@@ -368,7 +368,7 @@ export default function SoftwareLicenseForm({
                     showMonthAndYearPickers
                 />
             </div>
-             <Input
+            <Input
                 name="purchase_cost"
                 type="number"
                 label="Costo de Compra (Opcional)"
@@ -386,25 +386,24 @@ export default function SoftwareLicenseForm({
                     </div>
                 }
             />
-
-
             <Autocomplete
                 label="Proveedor (Opcional)"
                 placeholder="Buscar empresa proveedora..."
-                items={companies}
-                selectedKey={formData.supplier_company_id ? String(formData.supplier_company_id) : null}
                 onSelectionChange={(key) => handleSelectChange('supplier_company_id', key)}
+                onClear={() => handleSelectChange('supplier_company_id', null)}
                 variant="bordered"
                 isDisabled={isSubmitting || isLoadingDropdowns}
                 isLoading={isLoadingDropdowns}
                 isInvalid={!!errors.supplier_company_id}
                 errorMessage={errors.supplier_company_id}
+                selectedKey={formData.supplier_company_id ? String(formData.supplier_company_id) : null}
                 allowsCustomValue={false}
-                onClear={() => handleSelectChange('supplier_company_id', null)}
-                name="supplier_company_id"
             >
-                {(item) => <AutocompleteItem key={item.id} textValue={item.name}>{item.name}</AutocompleteItem>}
+                {companies.map((item) => (
+                    <AutocompleteItem key={item.id}>{item.name}</AutocompleteItem>
+                ))}
             </Autocomplete>
+
 
             <Input
                 name="invoice_number"

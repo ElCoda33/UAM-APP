@@ -379,5 +379,104 @@ VALUES (
     NOW()
 );
 
-
-select * from users;
+INSERT INTO software_licenses 
+  (asset_id, software_name, software_version, license_key, license_type, seats, purchase_date, purchase_cost, expiry_date, supplier_company_id, invoice_number, assigned_to_user_id, notes, created_at, updated_at, deleted_at) 
+VALUES
+(
+  1,                                         -- asset_id: Para el Laptop 'Dell XPS 15'
+  'Microsoft Windows 11 Pro',                -- software_name
+  '23H2',                                    -- software_version
+  'WINPRO-OEM-ASSET1-KEYXYZ',                -- license_key (placeholder)
+  'oem',                                     -- license_type
+  1,                                         -- seats
+  '2024-06-15',                              -- purchase_date (podría ser la fecha de compra del activo)
+  0.00,                                      -- purchase_cost (a menudo incluido con el hardware OEM)
+  NULL,                                      -- expiry_date (las OEM suelen ser perpetuas)
+  1,                                         -- supplier_company_id: Tech Solutions Ltd.
+  'INV-HW-2024-001',                         -- invoice_number (podría referenciar la factura del hardware)
+  NULL,                                      -- assigned_to_user_id (OEM se vincula al dispositivo)
+  'Licencia OEM de Windows 11 Pro preinstalada en Dell XPS 15 (Asset ID 1).', -- notes
+  NOW(),                                     -- created_at
+  NOW(),                                     -- updated_at
+  NULL                                       -- deleted_at
+),
+(
+  1,                                         -- asset_id: Para el Laptop 'Dell XPS 15'
+  'Microsoft Office 2021 Professional Plus', -- software_name
+  '2021',                                    -- software_version
+  'MSOFFC-PROPLUS-ASSET1-RETAILKEY',         -- license_key (placeholder)
+  'retail',                                  -- license_type
+  1,                                         -- seats
+  '2024-06-20',                              -- purchase_date
+  250.00,                                    -- purchase_cost
+  NULL,                                      -- expiry_date (retail perpetua)
+  2,                                         -- supplier_company_id: Office Supplies Co.
+  'INV-SW-2024-101',                         -- invoice_number
+  3,                                         -- assigned_to_user_id: 'employee1@example.com'
+  'Licencia Retail de Office 2021 para el usuario del Dell XPS 15.', -- notes
+  NOW(), NOW(), NULL
+),
+(
+  2,                                         -- asset_id: Para el Servidor 'HPE ProLiant DL380'
+  'VMware vSphere Essentials Kit',           -- software_name
+  '8.0',                                     -- software_version
+  'VMW-VESK-SERV1-SUBKEY',                   -- license_key (placeholder)
+  'subscription_device',                     -- license_type (suscripción por CPU/servidor)
+  1,                                         -- seats (cubre 1 kit para el servidor, que puede tener varias CPUs)
+  '2024-07-01',                              -- purchase_date
+  600.00,                                    -- purchase_cost (ej. anual)
+  '2025-06-30',                              -- expiry_date
+  1,                                         -- supplier_company_id: Tech Solutions Ltd.
+  'INV-VIRT-2024-005',                       -- invoice_number
+  NULL,                                      -- assigned_to_user_id (vinculada al servidor)
+  'Suscripción anual para virtualización del servidor HPE (Asset ID 2).', -- notes
+  NOW(), NOW(), NULL
+),
+(
+  5,                                         -- asset_id: Para 'Jira Standard' (Asset ID 5)
+  'Jira Software Data Center',               -- software_name (coincidiendo o detallando el asset)
+  '9.x',                                     -- software_version
+  'JIRA-DC-ORG-LICENSEKEY',                  -- license_key
+  'subscription_user',                       -- license_type (Jira DC a menudo es por usuarios)
+  50,                                        -- seats (ejemplo, podría ser diferente al del asset si se manejan pools)
+  '2024-01-10',                              -- purchase_date
+  3000.00,                                   -- purchase_cost (para 50 usuarios, ejemplo)
+  '2025-01-09',                              -- expiry_date
+  3,                                         -- supplier_company_id: Secure Assets Inc.
+  'INV-ATLSN-2024-002',                      -- invoice_number
+  NULL,                                      -- assigned_to_user_id (licencia de organización)
+  'Licencia anual para Jira Data Center, 50 usuarios. Asociada al activo "Jira Standard".', -- notes
+  NOW(), NOW(), NULL
+),
+(
+  NULL,                                      -- asset_id: Licencia en pool, no asignada a un bien específico aún
+  'Adobe Creative Cloud - Todas las aplicaciones', -- software_name
+  '2024',                                    -- software_version
+  'ADOBE-CC-USERPOOL-001',                   -- license_key (para una de las licencias del pool)
+  'subscription_user',                       -- license_type
+  1,                                         -- seats (esta entrada representa 1 de un pool mayor)
+  '2024-03-15',                              -- purchase_date
+  50.00,                                     -- purchase_cost (costo mensual por usuario)
+  '2025-03-14',                              -- expiry_date
+  2,                                         -- supplier_company_id: Office Supplies Co.
+  'INV-ADOBE-POOL-032024',                   -- invoice_number
+  NULL,                                      -- assigned_to_user_id (aún no asignada del pool)
+  'Una licencia de Adobe CC del pool de la empresa, pendiente de asignación.', -- notes
+  NOW(), NOW(), NULL
+),
+(
+  2,                                         -- asset_id: Para el Servidor 'HPE ProLiant DL380'
+  'Red Hat Enterprise Linux',                -- software_name
+  '9',                                       -- software_version
+  'RH-SUB-ID-SERV1-RHEL9',                   -- license_key (ID de suscripción)
+  'subscription_device',                     -- license_type
+  1,                                         -- seats (1 suscripción para este servidor)
+  '2024-08-01',                              -- purchase_date
+  349.00,                                    -- purchase_cost (Standard subscription, 1 año)
+  '2025-07-31',                              -- expiry_date
+  1,                                         -- supplier_company_id: Tech Solutions Ltd.
+  'INV-RH-2024-008',                         -- invoice_number
+  4,                                         -- assigned_to_user_id: 'tech@example.com' (Admin del servidor)
+  'Suscripción RHEL para el servidor HPE. Administrada por el equipo técnico.', -- notes
+  NOW(), NOW(), NULL
+);
