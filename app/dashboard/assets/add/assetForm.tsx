@@ -291,6 +291,9 @@ export default function AssetForm({
                 </Select>
             )}
 
+            <Input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp">
+
+            </Input>
             <div className="flex justify-end pt-4">
                 <Button type="submit" color="primary" isLoading={isSubmittingGlobal} isDisabled={isSubmittingGlobal}>
                     {isSubmittingGlobal ? "Guardando..." : submitButtonText}

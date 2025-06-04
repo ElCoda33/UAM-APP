@@ -283,8 +283,37 @@ CREATE TABLE asset_software_license_assignments (
   INDEX idx_asla_software_license_id (software_license_id)
 );
 
--- Usar la base de datos recién creada
-USE UAM_App_DB;
+
+CREATE TABLE IF NOT EXISTS documents (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  original_filename VARCHAR(255) NOT NULL,
+  stored_filename VARCHAR(255) NOT NULL UNIQUE, -- Nombre único en el almacenamiento (e.g., UUID + ext)
+  mime_type VARCHAR(100) NOT NULL,
+  file_size_bytes INT UNSIGNED NOT NULL,
+  storage_path VARCHAR(255) NOT NULL, -- Ruta relativa DENTRO de 'private_uploads' (e.g., 'invoices', 'manuals')
+  
+  -- Para vincular el documento a otras entidades
+  entity_type VARCHAR(50) NULL, -- Ej: 'asset', 'software_license', 'purchase_order', 'company'
+  entity_id INT UNSIGNED NULL,  -- ID de la entidad a la que se asocia
+  
+  document_category VARCHAR(50) NULL, -- Ej: 'invoice_purchase', 'warranty_certificate', 'user_manual', 'contract'
+  description TEXT NULL,          -- Descripción opcional del documento
+  
+  uploaded_by_user_id INT UNSIGNED NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL DEFAULT NULL, 
+
+  CONSTRAINT fk_documents_uploaded_by_user
+    FOREIGN KEY (uploaded_by_user_id)
+    REFERENCES users (id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+  
+  INDEX idx_documents_entity (entity_type, entity_id),
+  INDEX idx_documents_deleted_at (deleted_at),
+  INDEX idx_documents_category (document_category)
+);
 
 -- -----------------------------------------------------
 -- Table `roles`

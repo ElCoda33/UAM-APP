@@ -7,7 +7,7 @@ import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { updateSoftwareLicenseSchema } from '@/lib/schema'; // Schema de actualización con assign_to_asset_ids
 import { SoftwareLicenseListAPIRecord } from '../route'; // Interfaz base
 
-interface AssignedAssetInfo extends RowDataPacket {
+export interface AssignedAssetInfo extends RowDataPacket {
     assignment_id: number;
     asset_id: number;
     asset_product_name: string | null;
@@ -280,4 +280,8 @@ export async function DELETE(request: NextRequest, context: ParamsContext) {
     } finally {
         if (connection) connection.release();
     }
+}
+
+export interface SoftwareLicenseDetailAPIRecord extends SoftwareLicenseListAPIRecord {
+    assigned_assets: AssignedAssetInfo[];
 }
