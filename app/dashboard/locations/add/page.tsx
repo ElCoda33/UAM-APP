@@ -186,7 +186,7 @@ export default function AddLocationPage() {
                             name="section_id"
                             label="Dependencia (Sección)"
                             placeholder="Buscar y seleccionar sección..." // Placeholder actualizado
-                            items={allSections}
+                            defaultItems={allSections}
                             selectedKey={formData.section_id ? String(formData.section_id) : null} // selectedKey (singular) para Autocomplete
                             onSelectionChange={handleSectionSelectChange} // La función ya es compatible
                             variant="bordered"

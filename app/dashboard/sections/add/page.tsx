@@ -13,7 +13,9 @@ import {
     Link as NextUILink,
     Divider,
     Select,       // Usaremos Select
-    SelectItem    // Usaremos SelectItem
+    SelectItem,    // Usaremos SelectItem
+    Autocomplete,
+    AutocompleteItem
     // Autocomplete y AutocompleteItem ya no son necesarios aquí si los reemplazamos completamente
 } from "@heroui/react";
 import { toast } from "react-hot-toast";
@@ -211,11 +213,11 @@ export default function AddSectionPage() {
                                 </SelectItem>
                             )}
                         </Select>
-                        <Select // Cambiado de Autocomplete a Select
+                        <Autocomplete // Cambiado de Autocomplete a Select
                             name="parent_section_id"
                             label="Dependencia (Sección Padre - Opcional)"
                             placeholder="Seleccionar sección padre..."
-                            items={allParentSections}
+                            defaultItems={allParentSections}
                             selectedKeys={formData.parent_section_id ? [String(formData.parent_section_id)] : []}
                             onSelectionChange={(keys) => handleSelectChange('parent_section_id', Array.from(keys as Set<Key>)[0])}
                             variant="bordered"
@@ -226,11 +228,11 @@ export default function AddSectionPage() {
                             description="Si esta sección depende jerárquicamente de otra sección."
                         >
                             {(section) => (
-                                <SelectItem key={section.id} textValue={section.name}>
+                                <AutocompleteItem key={section.id} textValue={section.name}>
                                     {section.name} (ID: {section.id})
-                                </SelectItem>
+                                </AutocompleteItem>
                             )}
-                        </Select>
+                        </Autocomplete>
 
                         <div className="flex justify-end gap-3 pt-4">
                             <Button variant="flat" onPress={() => router.push("/dashboard/sections")} isDisabled={isSubmitting} type="button">

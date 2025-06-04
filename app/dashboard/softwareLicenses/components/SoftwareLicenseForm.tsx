@@ -264,8 +264,8 @@ export default function SoftwareLicenseForm({
         <form onSubmit={handleSubmit} className="space-y-6">
             <Autocomplete
                 label="Activo Vinculado (Opcional)"
-                placeholder="Buscar activo por ID o nombre..." // Actualizado placeholder
-                items={assets}
+                placeholder="Buscar activo..."
+                defaultItems={assets}
                 selectedKey={formData.asset_id ? String(formData.asset_id) : null}
                 onSelectionChange={(key) => handleSelectChange('asset_id', key)}
                 variant="bordered"
@@ -397,7 +397,7 @@ export default function SoftwareLicenseForm({
             <Autocomplete
                 label="Proveedor (Opcional)"
                 placeholder="Buscar empresa proveedora..."
-                items={companies}
+                defaultItems={companies}
                 selectedKey={formData.supplier_company_id ? String(formData.supplier_company_id) : null}
                 onSelectionChange={(key) => handleSelectChange('supplier_company_id', key)}
                 variant="bordered"
@@ -426,7 +426,7 @@ export default function SoftwareLicenseForm({
             <Autocomplete
                 label="Asignado a Usuario (Opcional)"
                 placeholder="Buscar usuario..."
-                items={users}
+                defaultItems={users}
                 selectedKey={formData.assigned_to_user_id ? String(formData.assigned_to_user_id) : null}
                 onSelectionChange={(key) => handleSelectChange('assigned_to_user_id', key)}
                 variant="bordered"

@@ -515,7 +515,7 @@ export default function UserForm({
             <Autocomplete
                 label="Sección (Opcional)"
                 placeholder="Buscar sección..."
-                items={sections}
+                defaultItems={sections}
                 selectedKey={formData.section_id ? String(formData.section_id) : null}
                 onSelectionChange={(key) => handleSelectChange('section_id', key !== null ? new Set([key].map(String)) : null)}
                 variant="bordered"

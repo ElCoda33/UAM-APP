@@ -202,7 +202,7 @@ export default function SectionForm({
         name="parent_section_id"
         label="Dependencia (Sección Padre - Opcional)"
         placeholder="Buscar sección padre..."
-        items={allSections}
+        defaultItems={allSections}
         selectedKey={formData.parent_section_id ? String(formData.parent_section_id) : null}
         onSelectionChange={(key) => handleSelectChange('parent_section_id', key)}
         isLoading={isLoadingSections}
