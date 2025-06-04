@@ -208,51 +208,38 @@ CREATE TABLE asset_transfers (
 
 CREATE TABLE software_licenses (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  asset_id INT UNSIGNED NULL,                     -- Vínculo al bien/activo al que se aplica esta licencia (si aplica directamente)
-  software_name VARCHAR(255) NOT NULL,            -- Nombre del software (ej: Microsoft Office 2021 Pro, Windows Server 2022 STD)
-  software_version VARCHAR(100) NULL,             -- Versión del software (ej: 2021, 11.2.1, SP2)
-  license_key VARCHAR(255) NULL,                  -- La clave de la licencia o número de serie del software. Puede ser NULL si es una licencia general.
+  -- asset_id INT UNSIGNED NULL, -- ESTA LÍNEA SE ELIMINA
+  software_name VARCHAR(255) NOT NULL,
+  software_version VARCHAR(100) NULL,
+  license_key VARCHAR(255) NULL,
   license_type ENUM(
-    'oem', 
-    'retail', 
-    'volume_mak', 
-    'volume_kms', 
-    'subscription_user', 
-    'subscription_device', 
-    'concurrent', 
-    'freeware', 
-    'open_source', 
-    'other'
-  ) NOT NULL DEFAULT 'other',                     -- Tipo de licencia
-  seats INT UNSIGNED NOT NULL DEFAULT 1,          -- Número de instalaciones/usuarios cubiertos por esta licencia
-  purchase_date DATE NULL,                        -- Fecha de compra de la licencia
-  purchase_cost DECIMAL(10,2) NULL,               -- Costo de adquisición de la licencia
-  expiry_date DATE NULL,                          -- Fecha de vencimiento de la licencia (para suscripciones)
-  supplier_company_id INT UNSIGNED NULL,          -- Empresa proveedora de la licencia
-  invoice_number VARCHAR(100) NULL,               -- Número de factura de la compra de la licencia
-  assigned_to_user_id INT UNSIGNED NULL,          -- Usuario al que está asignada la licencia (si es una licencia por usuario)
-  notes TEXT NULL,                                -- Notas adicionales sobre la licencia
+    'oem', 'retail', 'volume_mak', 'volume_kms', 
+    'subscription_user', 'subscription_device', 
+    'concurrent', 'freeware', 'open_source', 'other'
+  ) NOT NULL DEFAULT 'other',
+  seats INT UNSIGNED NOT NULL DEFAULT 1, -- Total de puestos que cubre esta licencia
+  purchase_date DATE NULL,
+  purchase_cost DECIMAL(10,2) NULL,
+  expiry_date DATE NULL,
+  supplier_company_id INT UNSIGNED NULL,
+  invoice_number VARCHAR(100) NULL,
+  assigned_to_user_id INT UNSIGNED NULL, -- Usuario responsable/propietario de la licencia general
+  notes TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  deleted_at TIMESTAMP NULL DEFAULT NULL,         -- Para eliminación lógica
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
 
-  CONSTRAINT fk_sl_asset
-    FOREIGN KEY (asset_id)
-    REFERENCES assets (id)
-    ON DELETE SET NULL                           -- Si se elimina el activo, la licencia queda desvinculada (o podría ser RESTRICT)
-    ON UPDATE CASCADE,
-  CONSTRAINT fk_sl_supplier_company
+  CONSTRAINT fk_sl_supplier_company_revised
     FOREIGN KEY (supplier_company_id)
     REFERENCES companies (id)
     ON DELETE SET NULL
     ON UPDATE CASCADE,
-  CONSTRAINT fk_sl_assigned_user
+  CONSTRAINT fk_sl_assigned_user_revised
     FOREIGN KEY (assigned_to_user_id)
     REFERENCES users (id)
     ON DELETE SET NULL
     ON UPDATE CASCADE,
   
-  INDEX idx_sl_asset_id (asset_id),
   INDEX idx_sl_software_name (software_name),
   INDEX idx_sl_license_key (license_key),
   INDEX idx_sl_expiry_date (expiry_date),
@@ -261,109 +248,191 @@ CREATE TABLE software_licenses (
   INDEX idx_sl_deleted_at (deleted_at)
 );
 
--- Nota sobre UNIQUE para 'software_licenses.license_key':
--- Al igual que con otros campos en el esquema, una clave de licencia (`license_key`)
--- debería ser idealmente única entre los registros activos (deleted_at IS NULL).
--- Se puede manejar a nivel de aplicación o con un constraint UNIQUE compuesto
--- si la base de datos lo soporta adecuadamente con valores NULL en `deleted_at`
--- (ej. `UNIQUE(license_key, deleted_at_coalesced_value)` donde los activos tienen un valor placeholder para `deleted_at`).
--- Por simplicidad, y siguiendo el patrón del esquema, la unicidad de `license_key`
--- para registros activos se asumiría manejada por la lógica de la aplicación al crear/actualizar.
--- Si `license_key` puede ser NULL (ej. para licencias de sitio donde no hay una clave individual),
--- un constraint UNIQUE directo necesitaría consideraciones especiales.
+-- -----------------------------------------------------
+-- Table `asset_software_license_assignments` (Nueva Tabla de Unión)
+-- Representa la asignación de una licencia de software a un activo específico.
+-- -----------------------------------------------------
+CREATE TABLE asset_software_license_assignments (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, -- Clave primaria simple para la asignación
+  asset_id INT UNSIGNED NOT NULL,
+  software_license_id INT UNSIGNED NOT NULL,
+  -- assigned_to_specific_user_id INT UNSIGNED NULL, -- Opcional: si quieres rastrear qué usuario usa ESTA instancia en ESTE activo
+  installation_date DATE NULL, -- Fecha en que esta licencia se instaló/asignó a este activo
+  notes TEXT NULL, -- Notas específicas para esta asignación activo-licencia
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  -- No es común el soft-delete en tablas de unión puras, se eliminan los registros.
+  -- Pero si quieres rastrear el historial de asignaciones pasadas, no la borres o añade un `unassigned_date`.
 
+  CONSTRAINT uq_asset_license_assignment UNIQUE (asset_id, software_license_id), -- Un activo solo puede tener una licencia específica asignada una vez
+
+  CONSTRAINT fk_asla_asset
+    FOREIGN KEY (asset_id)
+    REFERENCES assets (id)
+    ON DELETE CASCADE -- Si se elimina el activo, se elimina la asignación de la licencia
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_asla_software_license
+    FOREIGN KEY (software_license_id)
+    REFERENCES software_licenses (id)
+    ON DELETE CASCADE -- Si se elimina la licencia, se elimina la asignación
+    ON UPDATE CASCADE,
+  -- CONSTRAINT fk_asla_specific_user -- Si añades assigned_to_specific_user_id
+  --   FOREIGN KEY (assigned_to_specific_user_id) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,
+  
+  INDEX idx_asla_asset_id (asset_id),
+  INDEX idx_asla_software_license_id (software_license_id)
+);
+
+-- Usar la base de datos recién creada
+USE UAM_App_DB;
 
 -- -----------------------------------------------------
--- Datos para `sections`
+-- Table `roles`
+-- -----------------------------------------------------
+INSERT INTO roles (name, description, created_at, updated_at) VALUES
+('Admin', 'Administrador del Sistema con todos los permisos.', NOW(), NOW()),
+('Manager', 'Gerente de Sección/Departamento.', NOW(), NOW()),
+('User', 'Usuario Estándar del sistema.', NOW(), NOW()),
+('Technician', 'Técnico de Soporte TI.', NOW(), NOW()),
+('Auditor', 'Auditor con permisos de solo lectura para reportes.', NOW(), NOW());
+-- IDs Asumidos: Admin (1), Manager (2), User (3), Technician (4), Auditor (5)
+
+-- -----------------------------------------------------
+-- Table `sections`
 -- -----------------------------------------------------
 INSERT INTO sections (name, management_level, email, parent_section_id, created_at, updated_at) VALUES
-('IT Department', 1, 'it@example.com', NULL, '2024-01-10 08:00:00', '2024-01-10 08:00:00'),
-('Human Resources', 1, 'hr@example.com', NULL, '2024-01-11 09:00:00', '2024-01-11 09:00:00'),
-('Software Development', 2, 'dev@example.com', 1, '2024-01-15 10:00:00', '2024-01-15 10:00:00'), -- Asume que 'IT Department' tiene id=1
-('Recruitment', 2, 'recruitment@example.com', 2, '2024-01-16 11:00:00', '2024-01-16 11:00:00'); -- Asume que 'Human Resources' tiene id=2
+('Dirección General', 1, 'direccion@uam.com.uy', NULL, NOW(), NOW()),
+('Gerencia General', 2, 'gerencia.general@uam.com.uy', 1, NOW(), NOW()),
+('Departamento de TI', 2, 'ti@uam.com.uy', 1, NOW(), NOW()),
+('Recursos Humanos', 2, 'rrhh@uam.com.uy', 1, NOW(), NOW()),
+('Ventas y Marketing', 2, 'ventas@uam.com.uy', 1, NOW(), NOW());
+
+INSERT INTO sections (name, management_level, email, parent_section_id, created_at, updated_at) VALUES
+('Soporte Técnico (TI)', 3, 'soporte.ti@uam.com.uy', 3, NOW(), NOW()), -- Parent es Depto TI (ID 3)
+('Desarrollo de Software (TI)', 3, 'desarrollo.ti@uam.com.uy', 3, NOW(), NOW()), -- Parent es Depto TI (ID 3)
+('Operaciones (Ventas)', 3, 'operaciones.ventas@uam.com.uy', 5, NOW(), NOW()); -- Parent es Ventas (ID 5)
+
+-- Una sección eliminada lógicamente
+INSERT INTO sections (name, management_level, email, parent_section_id, created_at, updated_at, deleted_at) VALUES
+('Antigua Sección Logística', 3, 'logistica.old@uam.com.uy', 1, '2023-01-01 10:00:00', '2023-06-15 12:00:00', '2023-06-15 12:00:00');
+-- IDs Asumidos: Dirección General (1), Gerencia General (2), Depto TI (3), RRHH (4), Ventas (5),
+-- Soporte Técnico (6), Desarrollo (7), Operaciones Ventas (8), Antigua Logística (9 - eliminada)
 
 -- -----------------------------------------------------
--- Datos para `roles`
+-- Table `users`
 -- -----------------------------------------------------
-INSERT INTO roles (name, description) VALUES
-('Admin', 'Administrator with full system access'),
-('Manager', 'Managerial role with oversight capabilities'),
-('Employee', 'Standard employee access'),
-('Technician', 'Technical staff for asset management');
+-- Nota: Los password_hash son placeholders. Usa bcrypt en la app real.
+INSERT INTO users (email, password_hash, first_name, last_name, avatar_url, status, section_id, birth_date, email_verified_at, created_at, updated_at) VALUES
+('admin@uam.com.uy', 'bcrypt_hashed_password_admin', 'Admin', 'Principal', 'https://i.pravatar.cc/150?u=admin', 'active', 2, '1980-01-01', NOW(), NOW(), NOW()), -- Section: Gerencia General (ID 2)
+('manager@uam.com.uy', 'bcrypt_hashed_password_manager', 'Ana', 'Pérez', 'https://i.pravatar.cc/150?u=manager', 'active', 2, '1985-05-15', NOW(), NOW(), NOW()), -- Section: Gerencia General (ID 2)
+('tech@uam.com.uy', 'bcrypt_hashed_password_tech', 'Carlos', 'Lopez', 'https://i.pravatar.cc/150?u=tech', 'active', 6, '1990-07-20', NOW(), NOW(), NOW()), -- Section: Soporte Técnico (ID 6)
+('sales01@uam.com.uy', 'bcrypt_hashed_password_sales1', 'Laura', 'Gomez', 'https://i.pravatar.cc/150?u=sales01', 'active', 8, '1992-03-10', NOW(), NOW(), NOW()), -- Section: Operaciones Ventas (ID 8)
+('hr01@uam.com.uy', 'bcrypt_hashed_password_hr1', 'Pedro', 'Rodriguez', 'https://i.pravatar.cc/150?u=hr01', 'active', 4, '1988-11-05', NOW(), NOW(), NOW()), -- Section: RRHH (ID 4)
+('dev01@uam.com.uy', 'bcrypt_hashed_password_dev1', 'Sofia', 'Martinez', 'https://i.pravatar.cc/150?u=dev01', 'on_vacation', 7, '1995-09-25', NOW(), NOW(), NOW()); -- Section: Desarrollo (ID 7)
+
+INSERT INTO users (email, password_hash, first_name, last_name, status, section_id, created_at, updated_at, deleted_at) VALUES
+('olduser@uam.com.uy', 'bcrypt_hashed_password_old', 'Usuario', 'Antiguo', 'disabled', NULL, '2022-05-01 00:00:00', '2023-01-01 00:00:00', '2023-01-01 00:00:00'); -- Usuario eliminado
+-- IDs Asumidos: admin (1), manager (2), tech (3), sales01 (4), hr01 (5), dev01 (6), olduser (7 - eliminado)
+
 
 -- -----------------------------------------------------
--- Datos para `companies`
--- -----------------------------------------------------
-INSERT INTO companies (tax_id, phone_number, trade_name, legal_name, email, created_at, updated_at) VALUES
-('B01234567', '+1-555-0101', 'Tech Solutions Ltd.', 'Tech Solutions Limited liability Company', 'sales@techsolutions.com', '2023-05-15 14:00:00', '2023-05-15 14:00:00'),
-('A08901234', '+1-555-0202', 'Office Supplies Co.', 'Office Supplies Corporation', 'contact@officesupplies.co', '2023-06-20 10:30:00', '2023-06-20 10:30:00'),
-('C12345678', '+1-555-0303', 'Secure Assets Inc.', 'Secure Assets Incorporated', 'info@secureassets.inc', '2024-02-01 11:00:00', '2024-02-01 11:00:00');
-
--- -----------------------------------------------------
--- Datos para `locations`
--- -----------------------------------------------------
-INSERT INTO locations (name, description, section_id, created_at, updated_at) VALUES
-('Main Office - Building A', 'Primary office building, floor 1', 1, '2024-01-20 12:00:00', '2024-01-20 12:00:00'), -- IT Department
-('Warehouse West', 'Storage facility, west wing', NULL, '2024-01-21 13:00:00', '2024-01-21 13:00:00'),
-('Data Center Room 101', 'Secure server room', 1, '2024-02-01 15:00:00', '2024-02-01 15:00:00'), -- IT Department
-('HR Office Suite', 'Human Resources office area', 2, '2024-02-05 09:30:00', '2024-02-05 09:30:00'); -- Human Resources
-
--- -----------------------------------------------------
--- Datos para `users`
--- Nota: password_hash debe ser un hash bcrypt real. El valor aquí es un placeholder.
--- '$2b$10$abcdefghijklmnopqrstuv' es un ejemplo de la estructura, pero no es un hash válido.
--- Para pruebas reales, genera hashes con bcrypt para contraseñas como "password123".
--- -----------------------------------------------------
-INSERT INTO users (email, password_hash, first_name, last_name, avatar_url, email_verified_at, national_id, section_id, status, birth_date, created_at, updated_at) VALUES
-('admin@example.com', '$2b$10$K1G.O0o0i9J3e.fP8qH3qOJVDEuTORO8uT7gK.SgPUx2n9YJz55.q', 'Admin', 'User', 'https://i.pravatar.cc/150?u=admin@example.com', '2024-01-01 10:00:00', '1234567A', 1, 'active', '1980-05-15', '2024-01-01 10:00:00', '2024-01-01 10:00:00'),
-('manager@example.com', '$2b$10$K1G.O0o0i9J3e.fP8qH3qOJVDEuTORO8uT7gK.SgPUx2n9YJz55.q', 'Manager', 'Person', 'https://i.pravatar.cc/150?u=manager@example.com', '2024-01-02 11:00:00', '8901234B', 2, 'active', '1985-08-20', '2024-01-02 11:00:00', '2024-01-02 11:00:00'),
-('employee1@example.com', '$2b$10$K1G.O0o0i9J3e.fP8qH3qOJVDEuTORO8uT7gK.SgPUx2n9YJz55.q', 'Regular', 'Employee', NULL, '2024-01-03 12:00:00', '5678901C', 3, 'active', '1990-11-25', '2024-01-03 12:00:00', '2024-01-03 12:00:00'),
-('tech@example.com', '$2b$10$K1G.O0o0i9J3e.fP8qH3qOJVDEuTORO8uT7gK.SgPUx2n9YJz55.q', 'Tech', 'Support', 'https://i.pravatar.cc/150?u=tech@example.com', '2024-01-04 13:00:00', '2345678D', 1, 'on_vacation', '1992-03-10', '2024-01-04 13:00:00', '2024-03-01 13:00:00'),
-('disabled@example.com', '$2b$10$K1G.O0o0i9J3e.fP8qH3qOJVDEuTORO8uT7gK.SgPUx2n9YJz55.q', 'Former', 'User', NULL, NULL, '9012345E', 2, 'disabled', '1988-07-07', '2024-01-05 14:00:00', '2024-04-01 14:00:00');
-
--- -----------------------------------------------------
--- Datos para `user_roles`
--- Asume que los IDs de users son 1 (admin), 2 (manager), 3 (employee1), 4 (tech), 5 (disabled)
--- Asume que los IDs de roles son 1 (Admin), 2 (Manager), 3 (Employee), 4 (Technician)
+-- Table `user_roles`
 -- -----------------------------------------------------
 INSERT INTO user_roles (user_id, role_id, assigned_at) VALUES
-(1, 1, NOW()), -- admin@example.com es Admin
-(1, 3, NOW()), -- admin@example.com también es Employee (ejemplo de rol múltiple)
-(2, 2, NOW()), -- manager@example.com es Manager
-(2, 3, NOW()), -- manager@example.com también es Employee
-(3, 3, NOW()), -- employee1@example.com es Employee
-(4, 4, NOW()), -- tech@example.com es Technician
-(4, 3, NOW()); -- tech@example.com también es Employee
+(1, 1, NOW()), -- Admin User (ID 1) -> Rol Admin (ID 1)
+(2, 2, NOW()), -- Manager User (ID 2) -> Rol Manager (ID 2)
+(3, 4, NOW()), -- Tech User (ID 3) -> Rol Technician (ID 4)
+(3, 3, NOW()), -- Tech User (ID 3) -> También Rol User (ID 3)
+(4, 3, NOW()), -- Sales User 1 (ID 4) -> Rol User (ID 3)
+(5, 3, NOW()), -- HR User (ID 5) -> Rol User (ID 3)
+(5, 2, NOW()), -- HR User (ID 5) -> También Rol Manager (ID 2)
+(6, 3, NOW()); -- Dev User (ID 6) -> Rol User (ID 3)
 
 -- -----------------------------------------------------
--- Datos para `assets`
--- Asume IDs: sections(1:IT, 2:HR, 3:Dev), locations(1:MainOffice, 2:Warehouse, 3:DataCenter), companies(1:TechSol, 2:OfficeSup, 3:SecureAssets)
+-- Table `companies` (Proveedores)
 -- -----------------------------------------------------
-INSERT INTO assets (serial_number, inventory_code, description, product_name, warranty_expiry_date, current_section_id, current_location_id, supplier_company_id, purchase_date, invoice_number, acquisition_procedure, status, image_url, created_at, updated_at) VALUES
-('SN001LAPTOP', 'INV-LP-001', 'Developer Laptop 15 inch, 16GB RAM, 512GB SSD', 'Dell XPS 15', '2026-06-15', 3, 1, 1, '2024-06-15', 'INV2024-001', 'Direct Purchase', 'in_use', 'https://example.com/images/laptop.png', '2024-06-15 10:00:00', '2024-06-15 10:00:00'),
-('SN002SERVER', 'INV-SRV-001', 'Application Server, 2x Xeon, 128GB RAM', 'HPE ProLiant DL380', '2027-07-20', 1, 3, 1, '2024-07-20', 'INV2024-002', 'Leasing', 'in_use', 'https://example.com/images/server.png', '2024-07-20 11:00:00', '2024-07-20 11:00:00'),
-('SN003MONITOR', 'INV-MON-001', '27 inch 4K Monitor for Design', 'Dell UltraSharp U2723QE', '2026-08-01', 3, 1, 2, '2024-08-01', 'INV2024-003', 'Bulk Order', 'in_storage', NULL, '2024-08-01 12:00:00', '2024-08-01 12:00:00'),
-('SN004PRINTER', 'INV-PRN-001', 'Office Multifunction Printer', 'HP LaserJet Pro MFP', '2025-09-10', 2, 4, 2, '2023-09-10', 'INV2023-105', 'Direct Purchase', 'under_repair', NULL, '2023-09-10 14:00:00', '2024-05-10 14:00:00'),
-(NULL, 'INV-SOFT-001', 'Project Management Software License - 10 Users', 'Jira Standard', NULL, 1, NULL, 3, '2024-01-01', 'INV2024-S001', 'Subscription', 'in_use', NULL, '2024-01-01 09:00:00', '2024-01-01 09:00:00');
+INSERT INTO companies (tax_id, legal_name, trade_name, phone_number, email, created_at, updated_at) VALUES
+('210001110011', 'Tech Solutions Ltd.', 'TechSol', '29001234', 'contacto@techsol.com.uy', NOW(), NOW()),
+('210002220012', 'Office Supplies Co.', 'OfficePro', '26005678', 'ventas@officepro.com.uy', NOW(), NOW()),
+('210003330013', 'Secure Assets Inc.', 'SecureAssets', '24009012', 'info@secureassets.com.uy', NOW(), NOW()),
+('210004440014', 'Hardware Pro Uruguay S.A.', 'HardPro', '099123456', 'soporte@hardpro.com.uy', NOW(), NOW());
+-- IDs Asumidos: TechSol (1), OfficePro (2), SecureAssets (3), HardPro (4)
 
 -- -----------------------------------------------------
--- Datos para `asset_assignments`
--- Asume IDs: assets(1:Laptop, 2:Server, 3:Monitor), users(1:Admin, 3:Employee1, 4:Tech)
+-- Table `locations`
 -- -----------------------------------------------------
-INSERT INTO asset_assignments (asset_id, assigned_to_user_id, assignment_date, return_date, notes, signature_image_url, created_at, updated_at) VALUES
-(1, 3, '2024-06-20', NULL, 'Assigned for development tasks', 'https://example.com/signatures/sig001.png', '2024-06-20 09:00:00', '2024-06-20 09:00:00'), -- Laptop a Employee1
-(2, 4, '2024-07-25', NULL, 'Server under maintenance by tech', NULL, '2024-07-25 10:00:00', '2024-07-25 10:00:00'), -- Server a Tech
-(3, 1, '2024-08-05', '2024-08-10', 'Monitor for temporary use by admin', 'https://example.com/signatures/sig002.png', '2024-08-05 11:00:00', '2024-08-10 11:00:00'); -- Monitor a Admin (devuelto)
+INSERT INTO locations (name, description, section_id, created_at, updated_at) VALUES
+('Oficina Central - Piso 1 (Dirección)', 'Área de Dirección y Gerencia', 2, NOW(), NOW()), -- Section: Gerencia General (ID 2)
+('Oficina Central - Piso 2 (TI)', 'Departamento de Tecnologías de la Información', 3, NOW(), NOW()), -- Section: Depto TI (ID 3)
+('Sucursal Norte - Almacén', 'Almacén principal de activos en Sucursal Norte', 8, NOW(), NOW()), -- Section: Operaciones Ventas (ID 8)
+('Data Center Principal (TI)', 'Rack A01-A05, Sala de Servidores Principal', 3, NOW(), NOW()), -- Section: Depto TI (ID 3)
+('Sala de Reuniones Alfa', 'Sala para reuniones generales', 2, NOW(), NOW()); -- Section: Gerencia General (ID 2)
+-- IDs Asumidos: Piso 1 (1), Piso 2 TI (2), Almacén Norte (3), Data Center (4), Reuniones Alfa (5)
 
 -- -----------------------------------------------------
--- Datos para `asset_transfers`
--- Asume IDs: assets(1:Laptop, 2:Server), sections(1:IT, 3:Dev), locations(1:MainOffice, 3:DataCenter), users(1:Admin, 2:Manager, 4:Tech)
+-- Table `assets`
 -- -----------------------------------------------------
-INSERT INTO asset_transfers (asset_id, transfer_date, from_section_id, from_location_id, from_user_id, to_section_id, to_location_id, to_user_id, transfer_reason, authorized_by_user_id, received_by_user_id, received_date, signature_image_url, notes, created_at) VALUES
-(1, '2024-09-01 10:00:00', 3, 1, 3, 1, 1, 4, 'Laptop required for IT support tasks', 2, 4, '2024-09-01 10:05:00', 'https://example.com/signatures/transfer001.png', 'Temporary assignment to IT', NOW()), -- Laptop de Dev (Employee1) a IT (Tech) en MainOffice
-(2, '2024-09-05 14:30:00', 1, 3, 4, 1, 3, NULL, 'Server maintenance complete, returned to general pool in Data Center', 1, NULL, '2024-09-05 14:35:00', 'https://example.com/signatures/transfer002.png', 'Server operational', NOW()), -- Server de Tech a pool general en DataCenter (sin usuario específico asignado)
-(3, '2024-10-10 11:00:00', NULL, 2, NULL, 3, 1, 3, 'New monitor from warehouse assigned to developer', 2, 3, '2024-10-10 11:05:00', NULL, 'First assignment', NOW()); -- Monitor desde Warehouse a Dev (Employee1) en MainOffice
+INSERT INTO assets (inventory_code, product_name, description, serial_number, status, purchase_date, warranty_expiry_date, supplier_company_id, current_section_id, current_location_id, image_url, acquisition_procedure, invoice_number, created_at, updated_at) VALUES
+('UAM-LT-001', 'Dell XPS 15 9520', 'Laptop para desarrollo y diseño', 'DELLXPS15-SN001', 'in_use', '2023-06-15', '2026-06-14', 1, 7, 2, '/uploads/assets/laptop_dell_xps15.jpg', 'Compra Directa', 'TS-INV-2023-070', NOW(), NOW()), -- Supplier: TechSol (ID 1), Section: Desarrollo (ID 7), Location: Piso 2 TI (ID 2)
+('UAM-SRV-001', 'HPE ProLiant DL380 Gen10', 'Servidor para virtualización', 'HPESRV-SN001', 'in_use', '2023-03-20', '2026-03-19', 4, 3, 4, '/uploads/assets/server_hpe_dl380.jpg', 'Licitación Pública 01/23', 'HP-INV-2023-015', NOW(), NOW()), -- Supplier: HardPro (ID 4), Section: Depto TI (ID 3), Location: Data Center (ID 4)
+('UAM-DSK-001', 'Workstation Custom Ryzen 9', 'PC alto rendimiento para Diseño Gráfico', 'CUSTOM-SN001', 'in_storage', '2024-01-10', '2027-01-09', 4, 7, 2, '/uploads/assets/workstation_custom.jpg', 'Armado por Partes', 'HP-INV-2024-002', NOW(), NOW()), -- Section: Desarrollo (ID 7), Location: Piso 2 TI (ID 2)
+('UAM-PRN-001', 'HP LaserJet Pro M404dn', 'Impresora láser B/N para oficina', 'HPPRN-SN001', 'under_repair', '2022-08-01', '2023-07-31', 2, 4, 1, NULL, 'Compra Directa', 'OP-INV-2022-112', NOW(), NOW()), -- Section: RRHH (ID 4), Location: Piso 1 (ID 1)
+('UAM-MON-001', 'Dell UltraSharp U2723QE', 'Monitor 4K 27 pulgadas', 'DELLMON-SN001', 'in_use', '2023-06-15', '2026-06-14', 1, 7, 2, NULL, 'Compra Directa', 'TS-INV-2023-070', NOW(), NOW()); -- Section: Desarrollo (ID 7), Location: Piso 2 TI (ID 2)
 
+INSERT INTO assets (inventory_code, product_name, description, serial_number, status, purchase_date, warranty_expiry_date, supplier_company_id, current_section_id, current_location_id, created_at, updated_at, deleted_at) VALUES
+('UAM-LT-002', 'Apple MacBook Pro 14 M1', 'Laptop para Gerencia (obsoleta)', 'MACBOOKPRO-SN001', 'disposed', '2021-05-01', '2023-04-30', 1, NULL, NULL, '2021-05-01', '2023-12-01', '2023-12-01'); -- Activo eliminado
+-- IDs Asumidos: Laptop Dell (1), Server HPE (2), Workstation Custom (3), Printer HP (4), Monitor Dell (5), MacBook (6 - eliminado)
+
+-- -----------------------------------------------------
+-- Table `asset_assignments`
+-- -----------------------------------------------------
+INSERT INTO asset_assignments (asset_id, assigned_to_user_id, assignment_date, notes, created_at, updated_at) VALUES
+(1, 6, '2023-07-01', 'Asignado a Sofia Martinez para desarrollo', NOW(), NOW()), -- Asset: Laptop Dell (ID 1), User: dev01 (ID 6)
+(5, 6, '2023-07-01', 'Monitor asignado junto con laptop a Sofia Martinez', NOW(), NOW()); -- Asset: Monitor Dell (ID 5), User: dev01 (ID 6)
+
+INSERT INTO asset_assignments (asset_id, assigned_to_user_id, assignment_date, return_date, notes, created_at, updated_at) VALUES
+(4, 5, '2022-09-01', '2024-02-15', 'Impresora para Pedro Rodriguez, devuelta por falla.', NOW(), NOW()); -- Asset: Printer HP (ID 4), User: hr01 (ID 5)
+
+-- -----------------------------------------------------
+-- Table `asset_transfers`
+-- -----------------------------------------------------
+INSERT INTO asset_transfers (asset_id, transfer_date, from_section_id, from_location_id, to_section_id, to_location_id, to_user_id, transfer_reason, authorized_by_user_id) VALUES
+(3, '2024-02-01 10:00:00', NULL, NULL, 7, 2, 6, 'Nuevo equipo para desarrollador', 2), -- Asset: Workstation (ID 3) a Section Desarrollo (ID 7), Location Piso 2 TI (ID 2), User dev01 (ID 6), Auth by manager (ID 2)
+(1, '2024-03-15 14:30:00', 7, 2, 6, 2, 3, 'Reasignación temporal a Soporte Técnico', 2); -- Asset: Laptop Dell (ID 1) de Desarrollo (ID 7) a Soporte (ID 6), User tech (ID 3), Auth by manager (ID 2)
+
+-- -----------------------------------------------------
+-- Table `software_licenses` (Ya no tiene asset_id directo)
+-- -----------------------------------------------------
+INSERT INTO software_licenses (software_name, software_version, license_key, license_type, seats, purchase_date, purchase_cost, expiry_date, supplier_company_id, invoice_number, assigned_to_user_id, notes) VALUES
+('Microsoft Office 365 E3', 'Cloud', 'SUB-M365-E3-ORG01', 'subscription_user', 100, '2024-01-01', 2000.00, '2024-12-31', 1, 'TS-M365-2024', 2, 'Suscripción anual para toda la organización.'), -- Supplier: TechSol (ID 1), Resp: manager (ID 2)
+('Adobe Photoshop CC 2024', '2024', 'SUB-ADBPS-2024-DESIGN01', 'subscription_user', 5, '2024-02-15', 120.00, '2025-02-14', 2, 'OP-ADOBE-2024', 2, '5 licencias para equipo de diseño/marketing.'),
+('Windows Server 2022 Datacenter', '2022', 'VOL-WINDC-2022-SERV001', 'volume_mak', 2, '2023-03-10', 2500.00, NULL, 4, 'HP-WSERV-2023', 3, 'Licencias para 2 servidores de virtualización.'),
+('VMware vSphere Standard', '8.x', 'VMW-VSPH-STD-CLUSTER01', 'subscription_device', 10, '2023-04-01', 3000.00, '2026-03-31', 3, 'SA-VMW-2023', 3, 'Licencia por 3 años para cluster de virtualización (10 sockets CPU).');
+-- IDs Asumidos: Office365 (1), Photoshop (2), WinServer DC (3), VMware (4)
+
+-- -----------------------------------------------------
+-- Table `asset_software_license_assignments` (Nueva Tabla de Unión)
+-- -----------------------------------------------------
+-- Asignar Office 365 (Licencia ID 1) a varios activos:
+INSERT INTO asset_software_license_assignments (asset_id, software_license_id, installation_date, notes) VALUES
+(1, 1, '2024-01-05', 'Instalado en Dell XPS 15'), -- Asset ID 1 (Laptop Dell)
+(3, 1, '2024-01-15', 'Instalado en Workstation Custom'); -- Asset ID 3 (Workstation)
+
+-- Asignar Photoshop (Licencia ID 2) a un activo:
+INSERT INTO asset_software_license_assignments (asset_id, software_license_id, installation_date) VALUES
+(3, 2, '2024-02-20'); -- Asset ID 3 (Workstation)
+
+-- Asignar Windows Server Datacenter (Licencia ID 3) a un servidor:
+INSERT INTO asset_software_license_assignments (asset_id, software_license_id, installation_date, notes) VALUES
+(2, 3, '2023-03-15', 'Licencia de Sistema Operativo para HPE Server'); -- Asset ID 2 (Server HPE)
+
+-- Asignar VMware (Licencia ID 4) al mismo servidor:
+INSERT INTO asset_software_license_assignments (asset_id, software_license_id, installation_date) VALUES
+(2, 4, '2023-04-05'); -- Asset ID 2 (Server HPE)
+
+-- El Laptop Dell (Asset ID 1) tiene ahora Office 365.
+-- El Workstation Custom (Asset ID 3) tiene Office 365 y Photoshop.
+-- El Server HPE (Asset ID 2) tiene Windows Server DC y VMware.
 
 
 
@@ -377,106 +446,4 @@ VALUES (
     'active',
     NOW(),
     NOW()
-);
-
-INSERT INTO software_licenses 
-  (asset_id, software_name, software_version, license_key, license_type, seats, purchase_date, purchase_cost, expiry_date, supplier_company_id, invoice_number, assigned_to_user_id, notes, created_at, updated_at, deleted_at) 
-VALUES
-(
-  1,                                         -- asset_id: Para el Laptop 'Dell XPS 15'
-  'Microsoft Windows 11 Pro',                -- software_name
-  '23H2',                                    -- software_version
-  'WINPRO-OEM-ASSET1-KEYXYZ',                -- license_key (placeholder)
-  'oem',                                     -- license_type
-  1,                                         -- seats
-  '2024-06-15',                              -- purchase_date (podría ser la fecha de compra del activo)
-  0.00,                                      -- purchase_cost (a menudo incluido con el hardware OEM)
-  NULL,                                      -- expiry_date (las OEM suelen ser perpetuas)
-  1,                                         -- supplier_company_id: Tech Solutions Ltd.
-  'INV-HW-2024-001',                         -- invoice_number (podría referenciar la factura del hardware)
-  NULL,                                      -- assigned_to_user_id (OEM se vincula al dispositivo)
-  'Licencia OEM de Windows 11 Pro preinstalada en Dell XPS 15 (Asset ID 1).', -- notes
-  NOW(),                                     -- created_at
-  NOW(),                                     -- updated_at
-  NULL                                       -- deleted_at
-),
-(
-  1,                                         -- asset_id: Para el Laptop 'Dell XPS 15'
-  'Microsoft Office 2021 Professional Plus', -- software_name
-  '2021',                                    -- software_version
-  'MSOFFC-PROPLUS-ASSET1-RETAILKEY',         -- license_key (placeholder)
-  'retail',                                  -- license_type
-  1,                                         -- seats
-  '2024-06-20',                              -- purchase_date
-  250.00,                                    -- purchase_cost
-  NULL,                                      -- expiry_date (retail perpetua)
-  2,                                         -- supplier_company_id: Office Supplies Co.
-  'INV-SW-2024-101',                         -- invoice_number
-  3,                                         -- assigned_to_user_id: 'employee1@example.com'
-  'Licencia Retail de Office 2021 para el usuario del Dell XPS 15.', -- notes
-  NOW(), NOW(), NULL
-),
-(
-  2,                                         -- asset_id: Para el Servidor 'HPE ProLiant DL380'
-  'VMware vSphere Essentials Kit',           -- software_name
-  '8.0',                                     -- software_version
-  'VMW-VESK-SERV1-SUBKEY',                   -- license_key (placeholder)
-  'subscription_device',                     -- license_type (suscripción por CPU/servidor)
-  1,                                         -- seats (cubre 1 kit para el servidor, que puede tener varias CPUs)
-  '2024-07-01',                              -- purchase_date
-  600.00,                                    -- purchase_cost (ej. anual)
-  '2025-06-30',                              -- expiry_date
-  1,                                         -- supplier_company_id: Tech Solutions Ltd.
-  'INV-VIRT-2024-005',                       -- invoice_number
-  NULL,                                      -- assigned_to_user_id (vinculada al servidor)
-  'Suscripción anual para virtualización del servidor HPE (Asset ID 2).', -- notes
-  NOW(), NOW(), NULL
-),
-(
-  5,                                         -- asset_id: Para 'Jira Standard' (Asset ID 5)
-  'Jira Software Data Center',               -- software_name (coincidiendo o detallando el asset)
-  '9.x',                                     -- software_version
-  'JIRA-DC-ORG-LICENSEKEY',                  -- license_key
-  'subscription_user',                       -- license_type (Jira DC a menudo es por usuarios)
-  50,                                        -- seats (ejemplo, podría ser diferente al del asset si se manejan pools)
-  '2024-01-10',                              -- purchase_date
-  3000.00,                                   -- purchase_cost (para 50 usuarios, ejemplo)
-  '2025-01-09',                              -- expiry_date
-  3,                                         -- supplier_company_id: Secure Assets Inc.
-  'INV-ATLSN-2024-002',                      -- invoice_number
-  NULL,                                      -- assigned_to_user_id (licencia de organización)
-  'Licencia anual para Jira Data Center, 50 usuarios. Asociada al activo "Jira Standard".', -- notes
-  NOW(), NOW(), NULL
-),
-(
-  NULL,                                      -- asset_id: Licencia en pool, no asignada a un bien específico aún
-  'Adobe Creative Cloud - Todas las aplicaciones', -- software_name
-  '2024',                                    -- software_version
-  'ADOBE-CC-USERPOOL-001',                   -- license_key (para una de las licencias del pool)
-  'subscription_user',                       -- license_type
-  1,                                         -- seats (esta entrada representa 1 de un pool mayor)
-  '2024-03-15',                              -- purchase_date
-  50.00,                                     -- purchase_cost (costo mensual por usuario)
-  '2025-03-14',                              -- expiry_date
-  2,                                         -- supplier_company_id: Office Supplies Co.
-  'INV-ADOBE-POOL-032024',                   -- invoice_number
-  NULL,                                      -- assigned_to_user_id (aún no asignada del pool)
-  'Una licencia de Adobe CC del pool de la empresa, pendiente de asignación.', -- notes
-  NOW(), NOW(), NULL
-),
-(
-  2,                                         -- asset_id: Para el Servidor 'HPE ProLiant DL380'
-  'Red Hat Enterprise Linux',                -- software_name
-  '9',                                       -- software_version
-  'RH-SUB-ID-SERV1-RHEL9',                   -- license_key (ID de suscripción)
-  'subscription_device',                     -- license_type
-  1,                                         -- seats (1 suscripción para este servidor)
-  '2024-08-01',                              -- purchase_date
-  349.00,                                    -- purchase_cost (Standard subscription, 1 año)
-  '2025-07-31',                              -- expiry_date
-  1,                                         -- supplier_company_id: Tech Solutions Ltd.
-  'INV-RH-2024-008',                         -- invoice_number
-  4,                                         -- assigned_to_user_id: 'tech@example.com' (Admin del servidor)
-  'Suscripción RHEL para el servidor HPE. Administrada por el equipo técnico.', -- notes
-  NOW(), NOW(), NULL
 );

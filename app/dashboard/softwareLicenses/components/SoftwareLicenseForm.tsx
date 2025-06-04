@@ -4,59 +4,65 @@
 import React, { useEffect, useState, FormEvent, Key } from "react";
 import {
     Input, Button, Select, SelectItem, Textarea, DatePicker,
-    Spinner, Autocomplete, AutocompleteItem, Card, CardBody, CardHeader, Divider
+    Spinner, Card, CardBody, CardHeader, Divider
+    // Autocomplete no se usará para assets aquí, sino Select con modo múltiple
 } from "@heroui/react";
 import { toast } from "react-hot-toast";
 import {
-    createSoftwareLicenseSchema, softwareLicenseTypeEnum,
-    type softwareLicenseSchemaBase as SoftwareLicenseZodSchema // Para tipado
-} from "@/lib/schema"; //
+    createSoftwareLicenseSchema, // Ya incluye assign_to_asset_ids
+    updateSoftwareLicenseSchema, // Ya incluye assign_to_asset_ids
+    softwareLicenseTypeEnum,
+} from "@/lib/schema";
 import { DateValue, parseDate, CalendarDate } from "@internationalized/date";
 import type { z } from "zod";
+import type { SoftwareLicenseAPIRecord, SoftwareLicenseDetailAPIRecord, AssignedAssetInfo } from "@/app/api/softwareLicenses/route"; // Tipos de la API
 
 // Tipos para datos de dropdowns/autocompletes
-interface AssetOption { id: number; name: string; }
+interface AssetOption { id: number; name: string; inventory_code?: string | null; } // Añadido inventory_code para mejor display
 interface CompanyOption { id: number; name: string; }
 interface UserOption { id: number; name: string; }
 
-// Tipo para el estado del formulario, manejando DateValue para DatePickers
-type SoftwareLicenseFormData = Omit<z.infer<typeof SoftwareLicenseZodSchema>, 'purchase_date' | 'expiry_date'> & {
+// Tipo para el estado del formulario
+// Omitimos los campos que Zod espera en un formato diferente (fechas, y el array de números para asset_ids)
+type SoftwareLicenseFormDataState = Omit<
+    z.infer<typeof createSoftwareLicenseSchema>,
+    'purchase_date' | 'expiry_date' | 'assign_to_asset_ids'
+> & {
     purchase_date_value: DateValue | null;
     expiry_date_value: DateValue | null;
+    selected_asset_ids_set: Set<string>; // Para el Select múltiple de HeroUI (usa Set de strings)
 };
+
 
 // Opciones para el Select de tipo de licencia
 const licenseTypeOptions = softwareLicenseTypeEnum.options.map(option => ({
     key: option,
-    label: option.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') // Formatear para display
+    label: option.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
 }));
 
 interface SoftwareLicenseFormProps {
-    initialData?: Partial<SoftwareLicenseFormData>;
+    // initialData ahora puede ser SoftwareLicenseDetailAPIRecord para tener assigned_assets
+    initialData?: Partial<SoftwareLicenseDetailAPIRecord>;
     isEditMode: boolean;
-    licenseId?: number; // Para modo edición
-    onSubmitSuccess: (data: any) // Debería ser SoftwareLicenseAPIRecord cuando la tengas
-        => void;
+    licenseId?: number;
+    onSubmitSuccess: (data: SoftwareLicenseDetailAPIRecord | SoftwareLicenseAPIRecord) => void;
     onCancel: () => void;
 }
 
-// Helper para convertir YYYY-MM-DD string a DateValue
 const stringToDateValue = (dateString: string | null | undefined): DateValue | null => {
     if (!dateString) return null;
     try {
         const [year, month, day] = dateString.split('-').map(Number);
-        if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        if (!isNaN(year) && !isNaN(month) && !isNaN(day) && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
             return new CalendarDate(year, month, day);
         }
-        // Fallback por si el formato es diferente, aunque nuestra API devuelve YYYY-MM-DD
         return parseDate(dateString);
     } catch (e) {
-        console.warn("Error parsing date string for DatePicker:", dateString, e);
+        console.warn("SoftwareLicenseForm: Error parsing date string:", dateString, e);
         return null;
     }
 };
 
-// Helper para convertir DateValue a YYYY-MM-DD string
 const dateValueToString = (dateValue: DateValue | null | undefined): string | null => {
     if (!dateValue) return null;
     return `${dateValue.year}-${String(dateValue.month).padStart(2, '0')}-${String(dateValue.day).padStart(2, '0')}`;
@@ -70,54 +76,41 @@ export default function SoftwareLicenseForm({
     onSubmitSuccess,
     onCancel,
 }: SoftwareLicenseFormProps) {
-    const defaultFormData: SoftwareLicenseFormData = {
-        asset_id: null,
-        software_name: "",
-        software_version: null,
-        license_key: null,
-        license_type: 'other', // Valor por defecto del enum
-        seats: 1,
-        purchase_date_value: null,
-        purchase_cost: null,
-        expiry_date_value: null,
-        supplier_company_id: null,
-        invoice_number: null,
-        assigned_to_user_id: null,
-        notes: null,
-        ...(initialData && { // Sobrescribir con initialData si existe
-            ...initialData,
-            // Asegurar que las fechas de initialData (que serían string) se conviertan a DateValue
-            purchase_date_value: stringToDateValue(initialData.purchase_date_value as unknown as string || undefined),
-            expiry_date_value: stringToDateValue(initialData.expiry_date_value as unknown as string || undefined),
-        }),
+
+    const prepareInitialFormData = (data?: Partial<SoftwareLicenseDetailAPIRecord>): SoftwareLicenseFormDataState => {
+        const assignedAssetsSet = data?.assigned_assets
+            ? new Set(data.assigned_assets.map(a => String(a.asset_id)))
+            : new Set<string>();
+
+        return {
+            software_name: data?.software_name || "",
+            software_version: data?.software_version || null,
+            license_key: data?.license_key || null,
+            license_type: data?.license_type as SoftwareLicenseFormDataState['license_type'] || 'other',
+            seats: data?.seats || 1,
+            purchase_date_value: stringToDateValue(data?.purchase_date),
+            purchase_cost: data?.purchase_cost || null,
+            expiry_date_value: stringToDateValue(data?.expiry_date),
+            supplier_company_id: data?.supplier_company_id || null,
+            invoice_number: data?.invoice_number || null,
+            assigned_to_user_id: data?.assigned_to_user_id || null,
+            notes: data?.notes || null,
+            selected_asset_ids_set: assignedAssetsSet,
+        };
     };
 
-    const [formData, setFormData] = useState<SoftwareLicenseFormData>(defaultFormData);
+    const [formData, setFormData] = useState<SoftwareLicenseFormDataState>(prepareInitialFormData(initialData));
     const [assets, setAssets] = useState<AssetOption[]>([]);
     const [companies, setCompanies] = useState<CompanyOption[]>([]);
     const [users, setUsers] = useState<UserOption[]>([]);
     const [isLoadingDropdowns, setIsLoadingDropdowns] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [errors, setErrors] = useState<Partial<Record<keyof SoftwareLicenseFormData, string>>>({});
+    const [errors, setErrors] = useState<Partial<Record<keyof SoftwareLicenseFormDataState | 'assign_to_asset_ids', string>>>({});
+
 
     useEffect(() => {
-        // Si initialData cambia (ej. al cargar datos para edición), actualizar el formulario
         if (initialData) {
-            setFormData({
-                asset_id: initialData.asset_id ?? null,
-                software_name: initialData.software_name || "",
-                software_version: initialData.software_version ?? null,
-                license_key: initialData.license_key ?? null,
-                license_type: initialData.license_type || 'other',
-                seats: initialData.seats || 1,
-                purchase_date_value: stringToDateValue(initialData.purchase_date_value as unknown as string),
-                purchase_cost: initialData.purchase_cost ?? null,
-                expiry_date_value: stringToDateValue(initialData.expiry_date_value as unknown as string),
-                supplier_company_id: initialData.supplier_company_id ?? null,
-                invoice_number: initialData.invoice_number ?? null,
-                assigned_to_user_id: initialData.assigned_to_user_id ?? null,
-                notes: initialData.notes ?? null,
-            });
+            setFormData(prepareInitialFormData(initialData));
         }
     }, [initialData]);
 
@@ -126,14 +119,18 @@ export default function SoftwareLicenseForm({
             setIsLoadingDropdowns(true);
             try {
                 const [assetsRes, companiesRes, usersRes] = await Promise.all([
-                    fetch('/api/assets'),      // Asume que este endpoint existe y devuelve {id, product_name}
-                    fetch('/api/companies'),   // Asume que este endpoint existe y devuelve {id, legal_name, trade_name}
-                    fetch('/api/users')        // Asume que este endpoint existe y devuelve {id, first_name, last_name}
+                    fetch('/api/assets'),
+                    fetch('/api/companies'),
+                    fetch('/api/users')
                 ]);
 
                 if (!assetsRes.ok) throw new Error('Error al cargar activos');
                 const assetsData = await assetsRes.json();
-                setAssets(assetsData.map((a: any) => ({ id: a.id, name: a.product_name || `ID: ${a.id}` })));
+                setAssets(assetsData.map((a: any) => ({
+                    id: a.id,
+                    name: `${a.product_name || 'Activo sin nombre'} (Inv: ${a.inventory_code || 'S/C'}) (ID: ${a.id})`,
+                    inventory_code: a.inventory_code
+                })));
 
                 if (!companiesRes.ok) throw new Error('Error al cargar empresas');
                 const companiesData = await companiesRes.json();
@@ -145,7 +142,6 @@ export default function SoftwareLicenseForm({
 
             } catch (error: any) {
                 toast.error(error.message || "No se pudieron cargar las opciones para los selectores.");
-                console.error("Error fetching dropdown data for license form:", error);
             } finally {
                 setIsLoadingDropdowns(false);
             }
@@ -153,7 +149,7 @@ export default function SoftwareLicenseForm({
         fetchDropdownData();
     }, []);
 
-    const clearError = (fieldName: keyof SoftwareLicenseFormData) => {
+    const clearError = (fieldName: keyof SoftwareLicenseFormDataState | 'assign_to_asset_ids') => {
         if (errors && errors[fieldName]) {
             setErrors(prev => ({ ...prev, [fieldName]: undefined }));
         }
@@ -162,16 +158,18 @@ export default function SoftwareLicenseForm({
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
-        clearError(name as keyof SoftwareLicenseFormData);
+        clearError(name as keyof SoftwareLicenseFormDataState);
     };
 
-    const handleSelectChange = (fieldName: keyof SoftwareLicenseFormData, selectedKey: Key | null) => {
-        let val: string | number | null = null;
-        if (selectedKey !== null) {
-            if (fieldName === 'license_type') {
-                val = String(selectedKey);
-            } else { // asset_id, supplier_company_id, assigned_to_user_id
-                val = Number(selectedKey);
+    const handleSelectChange = (fieldName: keyof SoftwareLicenseFormDataState, selectedKeys: Key | Set<Key> | null) => {
+        let val: string | number | Set<string> | null = null; // Cambiado para manejar Set<string>
+        if (selectedKeys !== null) {
+            if (fieldName === 'selected_asset_ids_set') { // Este es el nuevo campo para el Set de strings
+                val = selectedKeys as Set<string>;
+            } else if (fieldName === 'license_type') {
+                val = String(Array.from(selectedKeys as Set<Key>)[0]);
+            } else {
+                val = Number(Array.from(selectedKeys as Set<Key>)[0]);
             }
         }
         setFormData(prev => ({ ...prev, [fieldName]: val as any }));
@@ -188,35 +186,30 @@ export default function SoftwareLicenseForm({
         setIsSubmitting(true);
         setErrors({});
 
-        const dataToValidate = {
-            ...formData,
+        const dataForZod = {
+            ...formData, // Contiene selected_asset_ids_set
             purchase_date: dateValueToString(formData.purchase_date_value),
             expiry_date: dateValueToString(formData.expiry_date_value),
-            // Asegurar que los campos numéricos opcionales sean undefined si son null para la validación de Zod
-            asset_id: formData.asset_id === null ? undefined : formData.asset_id,
-            software_version: formData.software_version === null ? undefined : formData.software_version,
-            license_key: formData.license_key === null ? undefined : formData.license_key,
-            purchase_cost: formData.purchase_cost === null ? undefined : formData.purchase_cost,
-            supplier_company_id: formData.supplier_company_id === null ? undefined : formData.supplier_company_id,
-            invoice_number: formData.invoice_number === null ? undefined : formData.invoice_number,
-            assigned_to_user_id: formData.assigned_to_user_id === null ? undefined : formData.assigned_to_user_id,
-            notes: formData.notes === null ? undefined : formData.notes,
+            // Convertir Set<string> a number[] para la validación y API
+            assign_to_asset_ids: Array.from(formData.selected_asset_ids_set).map(idStr => Number(idStr)),
         };
-        delete (dataToValidate as any).purchase_date_value;
-        delete (dataToValidate as any).expiry_date_value;
+        // Eliminar los campos internos del formulario que no son parte del schema de Zod
+        delete (dataForZod as any).purchase_date_value;
+        delete (dataForZod as any).expiry_date_value;
+        delete (dataForZod as any).selected_asset_ids_set;
 
+        // Limpiar campos opcionales vacíos a null si el schema espera null y no undefined
+        // Esto debería ser manejado por Zod con .nullable().optional() o con transformaciones si es necesario
 
-        // Usaremos createSoftwareLicenseSchema tanto para crear como para editar,
-        // ya que el PUT en la API puede manejar campos parciales o el schema de Zod `update` lo hará.
-        // Para el cliente, es más simple validar contra el schema completo y enviar solo lo cambiado
-        // o dejar que la API maneje qué campos actualizar. Por ahora validaremos contra el schema de creación/base.
-        const validationResult = createSoftwareLicenseSchema.safeParse(dataToValidate); //
+        const schemaToUse = isEditMode ? updateSoftwareLicenseSchema : createSoftwareLicenseSchema;
+        const validationResult = schemaToUse.safeParse(dataForZod);
 
         if (!validationResult.success) {
-            const flatErrors: Partial<Record<keyof SoftwareLicenseFormData, string>> = {};
+            const flatErrors: Partial<Record<keyof SoftwareLicenseFormDataState | 'assign_to_asset_ids', string>> = {};
             validationResult.error.errors.forEach(err => {
-                if (err.path.length > 0) {
-                    flatErrors[err.path[0] as keyof SoftwareLicenseFormData] = err.message;
+                const path = err.path[0] as keyof SoftwareLicenseFormDataState | 'assign_to_asset_ids';
+                if (path) {
+                    flatErrors[path] = err.message;
                 }
             });
             setErrors(flatErrors);
@@ -232,27 +225,28 @@ export default function SoftwareLicenseForm({
             const response = await fetch(apiPath, {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(validationResult.data), // Enviar datos validados
+                body: JSON.stringify(validationResult.data),
             });
             const result = await response.json();
 
             if (!response.ok) {
-                throw new Error(result.message || `Error al ${isEditMode ? 'actualizar' : 'crear'} la licencia.`);
+                let errorMessage = result.message || `Error al ${isEditMode ? 'actualizar' : 'crear'} la licencia.`;
+                if (result.field) {
+                    setErrors(prev => ({ ...prev, [result.field]: result.message }));
+                }
+                throw new Error(errorMessage);
             }
             toast.success(`Licencia ${isEditMode ? 'actualizada' : 'creada'} correctamente!`);
-            onSubmitSuccess(result.license || result); // La API de POST devuelve {license: ...}
+            onSubmitSuccess(result.license || result);
         } catch (error: any) {
             toast.error(error.message || `No se pudo ${isEditMode ? 'actualizar' : 'crear'} la licencia.`);
             console.error("Error submitting software license form:", error);
-            if (error.field && error.message) { // Para errores de unicidad desde la API
-                setErrors(prev => ({ ...prev, [error.field]: error.message }));
-            }
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    if (isLoadingDropdowns) {
+    if (isLoadingDropdowns && !initialData) {
         return (
             <div className="flex justify-center items-center p-8">
                 <Spinner label="Cargando opciones del formulario..." color="primary" />
@@ -262,201 +256,99 @@ export default function SoftwareLicenseForm({
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <Autocomplete
-                label="Activo Vinculado (Opcional)"
-                placeholder="Buscar activo..."
-                defaultItems={assets}
-                selectedKey={formData.asset_id ? String(formData.asset_id) : null}
-                onSelectionChange={(key) => handleSelectChange('asset_id', key)}
-                variant="bordered"
-                isDisabled={isSubmitting || isLoadingDropdowns}
-                isLoading={isLoadingDropdowns}
-                isInvalid={!!errors.asset_id}
-                errorMessage={errors.asset_id}
-                allowsCustomValue={false}
-                onClear={() => handleSelectChange('asset_id', null)}
-                name="asset_id"
-            >
-                {(item) => (
-                    // Modificación aquí: textValue ahora es el ID para la búsqueda.
-                    // El contenido del AutocompleteItem muestra ID y nombre.
-                    <AutocompleteItem key={item.id} textValue={String(item.id)}>
-                        {`ID: ${item.id} - ${item.name}`}
-                    </AutocompleteItem>
-                )}
-            </Autocomplete>
-
-            <Input
-                name="software_name"
-                label="Nombre del Software"
-                value={formData.software_name}
-                onChange={handleChange}
-                variant="bordered"
-                isRequired
-                isDisabled={isSubmitting}
-                isInvalid={!!errors.software_name}
-                errorMessage={errors.software_name}
-            />
-            <Input
-                name="software_version"
-                label="Versión del Software (Opcional)"
-                value={formData.software_version || ""}
-                onChange={handleChange}
-                variant="bordered"
-                isDisabled={isSubmitting}
-                isInvalid={!!errors.software_version}
-                errorMessage={errors.software_version}
-            />
-            <Input
-                name="license_key"
-                label="Clave de Licencia (Opcional)"
-                value={formData.license_key || ""}
-                onChange={handleChange}
-                variant="bordered"
-                isDisabled={isSubmitting}
-                isInvalid={!!errors.license_key}
-                errorMessage={errors.license_key}
-            />
+            <Input name="software_name" label="Nombre del Software" value={formData.software_name} onChange={handleChange} variant="bordered" isRequired isDisabled={isSubmitting} isInvalid={!!errors.software_name} errorMessage={errors.software_name} />
+            <Input name="software_version" label="Versión del Software (Opcional)" value={formData.software_version || ""} onChange={handleChange} variant="bordered" isDisabled={isSubmitting} isInvalid={!!errors.software_version} errorMessage={errors.software_version} />
+            <Input name="license_key" label="Clave de Licencia (Opcional)" value={formData.license_key || ""} onChange={handleChange} variant="bordered" isDisabled={isSubmitting} isInvalid={!!errors.license_key} errorMessage={errors.license_key} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Select
-                    name="license_type"
-                    label="Tipo de Licencia"
-                    placeholder="Seleccionar tipo"
+                    name="license_type" label="Tipo de Licencia" placeholder="Seleccionar tipo"
                     selectedKeys={formData.license_type ? [formData.license_type] : []}
                     onSelectionChange={(keys) => handleSelectChange('license_type', Array.from(keys as Set<Key>)[0])}
-                    variant="bordered"
-                    isRequired
-                    isDisabled={isSubmitting}
-                    isInvalid={!!errors.license_type}
-                    errorMessage={errors.license_type}
+                    variant="bordered" isRequired isDisabled={isSubmitting}
+                    isInvalid={!!errors.license_type} errorMessage={errors.license_type}
                 >
                     {licenseTypeOptions.map((opt) => (<SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>))}
                 </Select>
                 <Input
-                    name="seats"
-                    type="number"
-                    label="Puestos/Asientos"
-                    value={String(formData.seats)}
-                    onChange={handleChange}
-                    variant="bordered"
-                    isRequired
-                    min="1"
-                    isDisabled={isSubmitting}
-                    isInvalid={!!errors.seats}
-                    errorMessage={errors.seats}
+                    name="seats" type="number" label="Puestos/Asientos" value={String(formData.seats)}
+                    onChange={handleChange} variant="bordered" isRequired min="1" isDisabled={isSubmitting}
+                    isInvalid={!!errors.seats} errorMessage={errors.seats}
                 />
             </div>
+
+            {/* Selección Múltiple de Activos */}
+            <Select
+                name="selected_asset_ids_set" // Este es el nombre del campo en formData del form
+                label="Asignar a Activos (Opcional)"
+                placeholder="Seleccionar activos..."
+                selectionMode="multiple"
+                items={assets}
+                selectedKeys={formData.selected_asset_ids_set}
+                onSelectionChange={(keys) => handleSelectChange('selected_asset_ids_set', keys as Set<Key>)}
+                variant="bordered"
+                isDisabled={isSubmitting || isLoadingDropdowns}
+                isLoading={isLoadingDropdowns}
+                isInvalid={!!errors.assign_to_asset_ids} // Zod schema usa assign_to_asset_ids
+                errorMessage={errors.assign_to_asset_ids}
+                description="Selecciona los activos a los que se vinculará esta licencia."
+            >
+                {(asset) => (
+                    <SelectItem key={String(asset.id)} textValue={asset.name}>
+                        {asset.name}
+                    </SelectItem>
+                )}
+            </Select>
+
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <DatePicker
-                    name="purchase_date_value" // Nombre interno para el DatePicker
-                    label="Fecha de Compra (Opcional)"
-                    value={formData.purchase_date_value}
-                    onChange={(date) => handleDateChange('purchase_date_value', date)}
-                    variant="bordered"
-                    granularity="day"
-                    isDisabled={isSubmitting}
-                    isInvalid={!!errors.purchase_date_value}
-                    errorMessage={errors.purchase_date_value}
+                    name="purchase_date_value" label="Fecha de Compra (Opcional)"
+                    value={formData.purchase_date_value} onChange={(date) => handleDateChange('purchase_date_value', date)}
+                    variant="bordered" granularity="day" isDisabled={isSubmitting}
+                    isInvalid={!!errors.purchase_date_value} errorMessage={errors.purchase_date_value as string | undefined}
                     showMonthAndYearPickers
                 />
                 <DatePicker
-                    name="expiry_date_value" // Nombre interno para el DatePicker
-                    label="Fecha de Expiración (Opcional)"
-                    value={formData.expiry_date_value}
-                    onChange={(date) => handleDateChange('expiry_date_value', date)}
-                    variant="bordered"
-                    granularity="day"
-                    isDisabled={isSubmitting}
-                    isInvalid={!!errors.expiry_date_value}
-                    errorMessage={errors.expiry_date_value}
+                    name="expiry_date_value" label="Fecha de Expiración (Opcional)"
+                    value={formData.expiry_date_value} onChange={(date) => handleDateChange('expiry_date_value', date)}
+                    variant="bordered" granularity="day" isDisabled={isSubmitting}
+                    isInvalid={!!errors.expiry_date_value} errorMessage={errors.expiry_date_value as string | undefined}
                     showMonthAndYearPickers
                 />
             </div>
             <Input
-                name="purchase_cost"
-                type="number"
-                label="Costo de Compra (Opcional)"
+                name="purchase_cost" type="number" label="Costo de Compra (Opcional)"
                 value={formData.purchase_cost === null || formData.purchase_cost === undefined ? "" : String(formData.purchase_cost)}
-                onChange={handleChange}
-                variant="bordered"
-                min="0"
-                step="0.01"
-                isDisabled={isSubmitting}
-                isInvalid={!!errors.purchase_cost}
-                errorMessage={errors.purchase_cost}
-                startContent={
-                    <div className="pointer-events-none flex items-center">
-                        <span className="text-default-400 text-small">$</span>
-                    </div>
-                }
+                onChange={handleChange} variant="bordered" min="0" step="0.01" isDisabled={isSubmitting}
+                isInvalid={!!errors.purchase_cost} errorMessage={errors.purchase_cost}
+                startContent={<div className="pointer-events-none flex items-center"><span className="text-default-400 text-small">$</span></div>}
             />
-
-
-            <Autocomplete
-                label="Proveedor (Opcional)"
-                placeholder="Buscar empresa proveedora..."
-                defaultItems={companies}
-                selectedKey={formData.supplier_company_id ? String(formData.supplier_company_id) : null}
-                onSelectionChange={(key) => handleSelectChange('supplier_company_id', key)}
-                variant="bordered"
-                isDisabled={isSubmitting || isLoadingDropdowns}
-                isLoading={isLoadingDropdowns}
-                isInvalid={!!errors.supplier_company_id}
-                errorMessage={errors.supplier_company_id}
-                allowsCustomValue={false}
-                onClear={() => handleSelectChange('supplier_company_id', null)}
-                name="supplier_company_id"
+            <Select // Cambiado a Select normal para consistencia, Autocomplete podría ser para listas muy largas
+                name="supplier_company_id" label="Proveedor (Opcional)" placeholder="Seleccionar proveedor..."
+                items={companies}
+                selectedKeys={formData.supplier_company_id ? [String(formData.supplier_company_id)] : []}
+                onSelectionChange={(keys) => handleSelectChange('supplier_company_id', Array.from(keys as Set<Key>)[0])}
+                variant="bordered" isDisabled={isSubmitting || isLoadingDropdowns} isLoading={isLoadingDropdowns}
+                isInvalid={!!errors.supplier_company_id} errorMessage={errors.supplier_company_id}
             >
-                {(item) => <AutocompleteItem key={item.id} textValue={item.name}>{item.name}</AutocompleteItem>}
-            </Autocomplete>
-
-            <Input
-                name="invoice_number"
-                label="Número de Factura (Opcional)"
-                value={formData.invoice_number || ""}
-                onChange={handleChange}
-                variant="bordered"
-                isDisabled={isSubmitting}
-                isInvalid={!!errors.invoice_number}
-                errorMessage={errors.invoice_number}
-            />
-
-            <Autocomplete
-                label="Asignado a Usuario (Opcional)"
-                placeholder="Buscar usuario..."
-                defaultItems={users}
-                selectedKey={formData.assigned_to_user_id ? String(formData.assigned_to_user_id) : null}
-                onSelectionChange={(key) => handleSelectChange('assigned_to_user_id', key)}
-                variant="bordered"
-                isDisabled={isSubmitting || isLoadingDropdowns}
-                isLoading={isLoadingDropdowns}
-                isInvalid={!!errors.assigned_to_user_id}
-                errorMessage={errors.assigned_to_user_id}
-                allowsCustomValue={false}
-                onClear={() => handleSelectChange('assigned_to_user_id', null)}
-                name="assigned_to_user_id"
+                {(item) => <SelectItem key={item.id} textValue={item.name}>{item.name}</SelectItem>}
+            </Select>
+            <Input name="invoice_number" label="Número de Factura (Opcional)" value={formData.invoice_number || ""} onChange={handleChange} variant="bordered" isDisabled={isSubmitting} isInvalid={!!errors.invoice_number} errorMessage={errors.invoice_number} />
+            <Select // Cambiado a Select normal
+                name="assigned_to_user_id" label="Propietario/Responsable de Licencia (Opcional)" placeholder="Seleccionar usuario..."
+                items={users}
+                selectedKeys={formData.assigned_to_user_id ? [String(formData.assigned_to_user_id)] : []}
+                onSelectionChange={(keys) => handleSelectChange('assigned_to_user_id', Array.from(keys as Set<Key>)[0])}
+                variant="bordered" isDisabled={isSubmitting || isLoadingDropdowns} isLoading={isLoadingDropdowns}
+                isInvalid={!!errors.assigned_to_user_id} errorMessage={errors.assigned_to_user_id}
             >
-                {(item) => <AutocompleteItem key={item.id} textValue={item.name}>{item.name}</AutocompleteItem>}
-            </Autocomplete>
-
-            <Textarea
-                name="notes"
-                label="Notas (Opcional)"
-                value={formData.notes || ""}
-                onChange={handleChange}
-                variant="bordered"
-                minRows={3}
-                isDisabled={isSubmitting}
-                isInvalid={!!errors.notes}
-                errorMessage={errors.notes}
-            />
+                {(item) => <SelectItem key={item.id} textValue={item.name}>{item.name}</SelectItem>}
+            </Select>
+            <Textarea name="notes" label="Notas (Opcional)" value={formData.notes || ""} onChange={handleChange} variant="bordered" minRows={3} isDisabled={isSubmitting} isInvalid={!!errors.notes} errorMessage={errors.notes} />
 
             <div className="flex justify-end gap-3 pt-4">
-                <Button variant="flat" onPress={onCancel} isDisabled={isSubmitting} type="button">
-                    Cancelar
-                </Button>
+                <Button variant="flat" onPress={onCancel} isDisabled={isSubmitting} type="button">Cancelar</Button>
                 <Button type="submit" color="primary" isLoading={isSubmitting} isDisabled={isSubmitting}>
                     {isSubmitting ? "Guardando..." : (isEditMode ? "Guardar Cambios" : "Crear Licencia")}
                 </Button>

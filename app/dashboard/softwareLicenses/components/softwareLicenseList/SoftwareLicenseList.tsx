@@ -5,8 +5,8 @@ import React, { useEffect, useState, useMemo, Key, useCallback } from "react";
 import {
     Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
     Input, Button, DropdownTrigger, Dropdown, DropdownMenu, DropdownItem,
-    Chip, User as HeroUIUser, Pagination, Selection, ChipProps, Spinner,
-    SortDescriptor, Select, SelectItem, Tooltip
+    Chip, User as HeroUIUser, Pagination, Selection, Spinner,
+    SortDescriptor, Select, SelectItem, Tooltip, Link as HeroUILink
 } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
@@ -14,26 +14,30 @@ import { toast } from "react-hot-toast";
 import { PlusIcon } from "@/components/icons/PlusIcon";
 import { EditIcon } from "@/components/icons/EditIcon";
 import { DeleteIcon } from "@/components/icons/DeleteIcon";
-// import { EyeIcon } from "@/components/icons/EyeIcon"; // Para vista de detalles si se implementa
+import { EyeIcon } from "@/components/icons/EyeIcon"; // Para Ver Detalles
 import { SearchIcon } from "@/components/icons/SearchIcon";
 import { ChevronDownIcon } from "@/components/icons/ChevronDownIcon";
 
-import { SoftwareLicenseAPIRecord } from "@/app/api/softwareLicenses/route";
-import { COLUMNS_SOFTWARE_LICENSES, INITIAL_VISIBLE_LICENSE_COLUMNS, FILTERABLE_LICENSE_ATTRIBUTES } from "./data";
+// La API ahora devuelve SoftwareLicenseListAPIRecord que incluye assigned_assets_count
+import { SoftwareLicenseListAPIRecord } from "@/app/api/softwareLicenses/route";
+import { COLUMNS_SOFTWARE_LICENSES, INITIAL_VISIBLE_LICENSE_COLUMNS, FILTERABLE_LICENSE_ATTRIBUTES, licenseStatusOptions } from "./data";
 import { capitalize, formatDate, formatLicenseType, getLicenseChipStatus } from "./utils";
 
 const ROWS_PER_PAGE_OPTIONS = [10, 15, 25, 50];
 
 export default function SoftwareLicenseList() {
     const router = useRouter();
-    const [licenses, setLicenses] = useState<SoftwareLicenseAPIRecord[]>([]);
+    const [licenses, setLicenses] = useState<SoftwareLicenseListAPIRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    // const [error, setError] = useState<string | null>(null); // Podríamos usar toasts para errores
 
     const [filterSearchText, setFilterSearchText] = useState("");
     const [selectedFilterAttribute, setSelectedFilterAttribute] = useState<Key>(
         FILTERABLE_LICENSE_ATTRIBUTES[0]?.uid || "software_name"
     );
+    // Nuevo: filtro específico para el estado de la licencia (Activa, Expirada, etc.)
+    const [derivedStatusFilter, setDerivedStatusFilter] = useState<Selection>("all");
+
+
     const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
         column: "software_name",
         direction: "ascending",
@@ -47,71 +51,83 @@ export default function SoftwareLicenseList() {
     const fetchLicenses = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Podríamos pasar filtros al API si se implementa búsqueda en backend
-            // const searchParams = new URLSearchParams();
-            // if (filterSearchText && selectedFilterAttribute) {
-            //    searchParams.append(String(selectedFilterAttribute), filterSearchText);
-            // }
-            // const response = await fetch(`/api/softwareLicenses?${searchParams.toString()}`);
-            const response = await fetch(`/api/softwareLicenses`);
+            const response = await fetch('/api/softwareLicenses');
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.message || "Error al cargar licencias de software");
+                throw new Error(errData.message || "Error al cargar licencias");
             }
-            const data: SoftwareLicenseAPIRecord[] = await response.json();
+            const data: SoftwareLicenseListAPIRecord[] = await response.json();
             setLicenses(data);
         } catch (err: any) {
-            // setError(err.message);
             toast.error(err.message || "No se pudieron cargar las licencias.");
         } finally {
             setIsLoading(false);
         }
-    }, []); // Dependencias para re-fetch si el filtrado es en backend
+    }, []);
 
     useEffect(() => {
         fetchLicenses();
     }, [fetchLicenses]);
 
     const filteredItems = useMemo(() => {
-        if (!filterSearchText.trim()) return licenses;
-        const searchTerm = filterSearchText.toLowerCase();
-        const attributeKey = selectedFilterAttribute as keyof SoftwareLicenseAPIRecord;
+        let filtered = [...licenses];
 
-        return licenses.filter(license => {
-            const value = license[attributeKey];
-            if (value === null || value === undefined) return false;
+        // Filtrado por texto de búsqueda principal
+        if (filterSearchText.trim() && selectedFilterAttribute) {
+            const searchTerm = filterSearchText.toLowerCase();
+            const attributeKey = selectedFilterAttribute as keyof SoftwareLicenseListAPIRecord;
+            filtered = filtered.filter(license => {
+                const value = license[attributeKey];
+                if (value === null || value === undefined) return false;
+                if (attributeKey === 'license_type') {
+                    return formatLicenseType(String(value)).toLowerCase().includes(searchTerm);
+                }
+                if (attributeKey === 'status_derived') { // Filtrar por la etiqueta del estado calculado
+                    return getLicenseChipStatus(license).label.toLowerCase().includes(searchTerm);
+                }
+                return String(value).toLowerCase().includes(searchTerm);
+            });
+        }
 
-            if (attributeKey === 'license_type') {
-                return formatLicenseType(String(value)).toLowerCase().includes(searchTerm);
-            }
-            // Para asset_name, assigned_user_name, supplier_name ya vienen como string del API
-            return String(value).toLowerCase().includes(searchTerm);
-        });
-    }, [licenses, filterSearchText, selectedFilterAttribute]);
+        // Filtrado por estado derivado (Activa, Expirada, etc.)
+        if (derivedStatusFilter !== "all" && derivedStatusFilter.size > 0) {
+            const selectedStatuses = Array.from(derivedStatusFilter);
+            filtered = filtered.filter(license => {
+                const statusInfo = getLicenseChipStatus(license);
+                // Comparar con el 'uid' de licenseStatusOptions, que podría ser el label normalizado
+                return selectedStatuses.includes(statusInfo.label.toLowerCase().replace(' ', '_'));
+            });
+        }
+
+        return filtered;
+    }, [licenses, filterSearchText, selectedFilterAttribute, derivedStatusFilter]);
 
     const sortedItems = useMemo(() => {
         return [...filteredItems].sort((a, b) => {
-            const col = sortDescriptor.column as keyof SoftwareLicenseAPIRecord;
+            let colA = sortDescriptor.column === "status_derived"
+                ? getLicenseChipStatus(a).label
+                : a[sortDescriptor.column as keyof SoftwareLicenseListAPIRecord];
+            let colB = sortDescriptor.column === "status_derived"
+                ? getLicenseChipStatus(b).label
+                : b[sortDescriptor.column as keyof SoftwareLicenseListAPIRecord];
+
             const direction = sortDescriptor.direction === 'ascending' ? 1 : -1;
 
-            let valA = a[col];
-            let valB = b[col];
-
-            // Manejo especial para fechas
-            if (col === 'purchase_date' || col === 'expiry_date' || col === 'created_at') {
-                valA = valA ? new Date(valA as string).getTime() : -Infinity;
-                valB = valB ? new Date(valB as string).getTime() : -Infinity;
-            } else if (typeof valA === 'string') {
-                valA = valA.toLowerCase();
-            } else if (typeof valB === 'string') {
-                valB = valB.toLowerCase();
+            if (sortDescriptor.column === 'purchase_date' || sortDescriptor.column === 'expiry_date' || sortDescriptor.column === 'created_at') {
+                colA = colA ? new Date(colA as string).getTime() : -Infinity;
+                colB = colB ? new Date(colB as string).getTime() : -Infinity;
+            } else if (typeof colA === 'string') {
+                colA = colA.toLowerCase();
+            }
+            if (typeof colB === 'string') { // Asegurar que colB también se trate como string si colA lo es
+                colB = colB.toLowerCase();
             }
 
-            if (valA === null || valA === undefined) return 1 * direction; // Null/undefined al final
-            if (valB === null || valB === undefined) return -1 * direction; // Null/undefined al final
+            if (colA === null || colA === undefined) return 1 * direction;
+            if (colB === null || colB === undefined) return -1 * direction;
 
-            if (valA < valB) return -1 * direction;
-            if (valA > valB) return 1 * direction;
+            if (colA < colB) return -1 * direction;
+            if (colA > colB) return 1 * direction;
             return 0;
         });
     }, [sortDescriptor, filteredItems]);
@@ -125,6 +141,7 @@ export default function SoftwareLicenseList() {
     const pages = Math.ceil(sortedItems.length / rowsPerPage);
 
     const handleDeleteLicense = async (licenseId: number, licenseName: string) => {
+        // ... (sin cambios)
         const confirmDelete = window.confirm(`¿Estás seguro de que quieres eliminar la licencia para "${licenseName}" (ID: ${licenseId})?`);
         if (!confirmDelete) return;
 
@@ -135,15 +152,14 @@ export default function SoftwareLicenseList() {
             if (!response.ok) throw new Error(result.message || "Error al eliminar la licencia");
 
             toast.success(result.message || "Licencia eliminada.", { id: toastId });
-            fetchLicenses(); // Recargar datos
+            fetchLicenses();
         } catch (err: any) {
             toast.error(err.message || "No se pudo eliminar la licencia.", { id: toastId });
         }
     };
 
-    const renderCell = useCallback((license: SoftwareLicenseAPIRecord, columnKey: Key): React.ReactNode => {
-        const cellValue = license[columnKey as keyof SoftwareLicenseAPIRecord];
-        const statusInfo = getLicenseChipStatus(license);
+    const renderCell = useCallback((license: SoftwareLicenseListAPIRecord, columnKey: Key): React.ReactNode => {
+        const cellValue = license[columnKey as keyof SoftwareLicenseListAPIRecord];
 
         switch (columnKey) {
             case "software_name":
@@ -151,41 +167,35 @@ export default function SoftwareLicenseList() {
                     <HeroUIUser
                         name={license.software_name}
                         description={license.software_version || "Versión no especificada"}
-                        avatarProps={{
-                            // Podrías tener un generador de avatares o un ícono por defecto para software
-                            name: license.software_name.charAt(0).toUpperCase(),
-                            size: "sm",
-                        }}
+                        avatarProps={{ name: license.software_name.charAt(0).toUpperCase(), size: "sm" }}
                     />
                 );
             case "license_type":
                 return <Chip size="sm" variant="flat">{formatLicenseType(cellValue as string)}</Chip>;
             case "seats":
-                return <div className="text-right pr-2">{cellValue}</div>;
+            case "assigned_assets_count": // NUEVO: Mostrar el conteo de activos
+                return <div className="text-right pr-2">{cellValue ?? 0}</div>;
             case "purchase_date":
             case "expiry_date":
                 return formatDate(cellValue as string);
             case "created_at":
-                return formatDate(cellValue as string, true); // Incluir hora para created_at
-            case "asset_name":
-                return cellValue || <Chip size="sm" variant="bordered" color="default">No asignado</Chip>;
-            case "assigned_user_name":
-                return cellValue || <Chip size="sm" variant="bordered" color="default">No asignado</Chip>;
-            case "license_key":
-                return cellValue ? `${(cellValue as string).substring(0, 15)}...` : "N/A";
-            case "status_derived": // Columna virtual para el chip de estado
+                return formatDate(cellValue as string, true);
+            case "status_derived":
+                const statusInfo = getLicenseChipStatus(license);
                 return <Chip size="sm" variant="flat" color={statusInfo.color}>{statusInfo.label}</Chip>;
             case "actions":
                 return (
                     <div className="relative flex items-center justify-end gap-1">
+                        <Tooltip content="Ver Detalles y Asignaciones">
+                            <Button isIconOnly size="sm" variant="light" onPress={() => router.push(`/dashboard/softwareLicenses/${license.id}`)} >
+                                <EyeIcon className="text-lg text-default-500" />
+                            </Button>
+                        </Tooltip>
                         <Tooltip content="Editar Licencia">
                             <Button isIconOnly size="sm" variant="light" onPress={() => router.push(`/dashboard/softwareLicenses/${license.id}/edit`)}>
                                 <EditIcon className="text-lg text-default-500" />
                             </Button>
                         </Tooltip>
-                        {/* <Tooltip content="Ver Detalles">
-                             <Button isIconOnly size="sm" variant="light" onPress={() => router.push(`/dashboard/softwareLicenses/${license.id}`)}> <EyeIcon /> </Button>
-                        </Tooltip> */}
                         <Tooltip color="danger" content="Eliminar Licencia">
                             <Button isIconOnly size="sm" variant="light" onPress={() => handleDeleteLicense(license.id, license.software_name)}>
                                 <DeleteIcon className="text-lg text-danger" />
@@ -202,13 +212,12 @@ export default function SoftwareLicenseList() {
     const onClearSearch = useCallback(() => { setFilterSearchText(""); setPage(1); }, []);
     const onRowsPerPageChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => { setRowsPerPage(Number(e.target.value)); setPage(1); }, []);
 
-    // Columnas dinámicas para el Dropdown de visibilidad y la tabla
     const allTableColumns = useMemo(() => {
-        // Añadir una columna virtual para el estado derivado si se desea
         const currentCols = [...COLUMNS_SOFTWARE_LICENSES];
         if (!currentCols.find(col => col.uid === 'status_derived')) {
-            currentCols.splice(currentCols.findIndex(col => col.uid === 'expiry_date') + 1, 0, {
-                uid: "status_derived", name: "Estado (Calculado)", sortable: true, defaultVisible: true, filterable: false
+            const expiryDateIndex = currentCols.findIndex(col => col.uid === 'expiry_date');
+            currentCols.splice(expiryDateIndex !== -1 ? expiryDateIndex + 1 : currentCols.length - 1, 0, {
+                uid: "status_derived", name: "Estado", sortable: true, defaultVisible: true, filterable: true // Hacerlo filtrable
             });
         }
         return currentCols;
@@ -222,17 +231,15 @@ export default function SoftwareLicenseList() {
         return allTableColumns.filter(col => col.uid !== 'actions');
     }, [allTableColumns]);
 
-
     const topContent = useMemo(() => {
         return (
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col sm:flex-row justify-between items-end gap-3">
                     <div className="flex flex-col xs:flex-row items-end gap-3 w-full sm:w-auto flex-grow-[2] sm:flex-grow-0">
                         <Select
-                            aria-label="Filtrar por atributo"
-                            placeholder="Buscar por..."
+                            aria-label="Filtrar por atributo" placeholder="Buscar por..."
                             className="w-full xs:w-auto xs:min-w-[180px] md:max-w-xs"
-                            selectedKeys={selectedFilterAttribute ? [selectedFilterAttribute] : []}
+                            selectedKeys={selectedFilterAttribute ? [selectedFilterAttribute] : undefined}
                             onSelectionChange={(keys) => setSelectedFilterAttribute(Array.from(keys as Set<Key>)[0] || FILTERABLE_LICENSE_ATTRIBUTES[0].uid)}
                             size="md"
                         >
@@ -241,17 +248,27 @@ export default function SoftwareLicenseList() {
                             ))}
                         </Select>
                         <Input
-                            isClearable
-                            className="w-full xs:w-auto xs:flex-grow"
+                            isClearable className="w-full xs:w-auto xs:flex-grow"
                             placeholder={`Buscar en "${allTableColumns.find(c => c.uid === selectedFilterAttribute)?.name || 'atributo'}"...`}
                             startContent={<SearchIcon className="text-default-400" />}
-                            value={filterSearchText}
-                            onClear={onClearSearch}
-                            onValueChange={onSearchTextChange}
-                            size="md"
+                            value={filterSearchText} onClear={onClearSearch} onValueChange={onSearchTextChange} size="md"
                         />
                     </div>
                     <div className="flex gap-3 w-full sm:w-auto justify-end sm:justify-start">
+                        <Dropdown>
+                            <DropdownTrigger>
+                                <Button endContent={<ChevronDownIcon className="text-small" />} variant="flat">Estado Lic.</Button>
+                            </DropdownTrigger>
+                            <DropdownMenu
+                                disallowEmptySelection aria-label="Filtrar por Estado de Licencia" closeOnSelect={false}
+                                selectedKeys={derivedStatusFilter} selectionMode="multiple"
+                                onSelectionChange={setDerivedStatusFilter} // Actualizar el filtro de estado
+                            >
+                                {licenseStatusOptions.map((statusOpt) =>
+                                    <DropdownItem key={statusOpt.uid} className="capitalize">{statusOpt.name}</DropdownItem>
+                                )}
+                            </DropdownMenu>
+                        </Dropdown>
                         <Dropdown>
                             <DropdownTrigger>
                                 <Button endContent={<ChevronDownIcon className="text-small" />} variant="flat">Columnas</Button>
@@ -273,7 +290,7 @@ export default function SoftwareLicenseList() {
                 </div>
                 <div className="flex justify-between items-center">
                     <span className="text-default-500 text-small">
-                        Total {licenses.length} licencias. {filteredItems.length !== licenses.length ? `${filteredItems.length} coinciden con el filtro.` : ''}
+                        Total {licenses.length} licencias. {sortedItems.length !== licenses.length ? `${sortedItems.length} coinciden con el filtro.` : ''}
                     </span>
                     <label className="flex items-center text-default-500 text-small">
                         Filas por página:
@@ -286,13 +303,15 @@ export default function SoftwareLicenseList() {
         );
     }, [
         filterSearchText, visibleColumns, onSearchTextChange, onRowsPerPageChange, licenses.length, router,
-        onClearSearch, rowsPerPage, selectedFilterAttribute, allTableColumns, toggleableColumnsForDropdown, filteredItems.length
+        onClearSearch, rowsPerPage, selectedFilterAttribute, allTableColumns, toggleableColumnsForDropdown, sortedItems.length, derivedStatusFilter
     ]);
 
-    const bottomContent = useMemo(() => {
+    // ... (bottomContent y return <Table>... se mantienen muy similares a la versión anterior del listado,
+    //      asegurándose de usar headerColumnsToRender y itemsToDisplay) ...
+    const bottomContent = useMemo(() => { /* ... (como en el UserList) ... */
         return (
             <div className="py-2 px-2 flex justify-between items-center">
-                <span className="w-[30%] text-small text-default-400 hidden sm:block">&nbsp;</span> {/* Placeholder */}
+                <span className="w-[30%] text-small text-default-400 hidden sm:block">&nbsp;</span>
                 <Pagination
                     isCompact showControls showShadow color="primary"
                     page={page} total={pages} onChange={setPage}
@@ -314,21 +333,18 @@ export default function SoftwareLicenseList() {
         <div className="space-y-4">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestión de Licencias de Software</h1>
             <Table
-                aria-label="Tabla de Licencias de Software"
-                isHeaderSticky
-                topContent={topContent}
-                topContentPlacement="outside"
+                aria-label="Tabla de Licencias de Software" isHeaderSticky
+                topContent={topContent} topContentPlacement="outside"
                 bottomContent={pages > 0 && itemsToDisplay.length > 0 ? bottomContent : null}
                 bottomContentPlacement="outside"
-                sortDescriptor={sortDescriptor}
-                onSortChange={setSortDescriptor}
+                sortDescriptor={sortDescriptor} onSortChange={setSortDescriptor}
                 classNames={{ wrapper: "max-h-[calc(100vh-350px)]", table: "min-w-[1000px]" }}
             >
                 <TableHeader columns={headerColumnsToRender}>
                     {(column) => (
                         <TableColumn
                             key={column.uid}
-                            align={column.uid === "actions" || column.uid === "seats" ? "center" : "start"}
+                            align={column.uid === "actions" || column.uid === "seats" || column.uid === "assigned_assets_count" ? "center" : "start"}
                             allowsSorting={column.sortable}
                             className="bg-default-100 text-default-700 sticky top-0 z-10"
                         >
@@ -338,11 +354,11 @@ export default function SoftwareLicenseList() {
                 </TableHeader>
                 <TableBody
                     items={itemsToDisplay}
-                    isLoading={isLoading && itemsToDisplay.length > 0} // Mostrar spinner si se está recargando y hay items
+                    isLoading={isLoading && itemsToDisplay.length > 0}
                     loadingContent={<Spinner label="Actualizando lista..." />}
                     emptyContent={
                         !isLoading && licenses.length === 0 ? "No hay licencias registradas." :
-                            !isLoading && filteredItems.length === 0 ? "Ninguna licencia coincide con los filtros." : " "
+                            !isLoading && sortedItems.length === 0 ? "Ninguna licencia coincide con los filtros." : " "
                     }
                 >
                     {(item) => (

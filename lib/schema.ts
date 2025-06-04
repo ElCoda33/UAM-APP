@@ -3,7 +3,61 @@ import { RowDataPacket } from "mysql2";
 import { z } from "zod";
 
 
+// Enum para los tipos de licencia de software
+export const softwareLicenseTypeEnum = z.enum([
+    'oem',
+    'retail',
+    'volume_mak',
+    'volume_kms',
+    'subscription_user',
+    'subscription_device',
+    'concurrent',
+    'freeware',
+    'open_source',
+    'other'
+], {
+    required_error: "El tipo de licencia es requerido.",
+    invalid_type_error: "Tipo de licencia no válido.",
+});
 
+// Schema base para una licencia de software (SIN asset_id directo)
+export const softwareLicenseSchemaBase = z.object({
+    // asset_id: z.coerce.number().int().positive("ID de activo inválido.").nullable().optional(), // ELIMINADO
+    software_name: z.string().min(1, "El nombre del software es requerido.").max(255, "Máximo 255 caracteres."),
+    software_version: z.string().max(100, "Máximo 100 caracteres.").nullable().optional(),
+    license_key: z.string().max(255, "Máximo 255 caracteres.").nullable().optional(),
+    license_type: softwareLicenseTypeEnum,
+    seats: z.coerce.number().int().min(1, "Debe haber al menos 1 puesto.").default(1),
+    purchase_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").nullable().optional(),
+    purchase_cost: z.coerce.number().min(0, "El costo no puede ser negativo.").nullable().optional(),
+    expiry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").nullable().optional(),
+    supplier_company_id: z.coerce.number().int().positive("ID de proveedor inválido.").nullable().optional(),
+    invoice_number: z.string().max(100, "Máximo 100 caracteres.").nullable().optional(),
+    assigned_to_user_id: z.coerce.number().int().positive("ID de usuario inválido.").nullable().optional(), // Usuario propietario/responsable de la licencia
+    notes: z.string().max(65535, "Notas demasiado largas.").nullable().optional(),
+});
+
+// Schema para crear una nueva licencia de software
+// Ahora podría incluir un array de asset_ids a los que se asignará inicialmente
+export const createSoftwareLicenseSchema = softwareLicenseSchemaBase.extend({
+    assign_to_asset_ids: z.array(z.coerce.number().int().positive()).optional().default([]) // Array de IDs de activos
+});
+
+// Schema para actualizar una licencia de software
+// También podría incluir la gestión de asset_ids para sincronizar asignaciones
+export const updateSoftwareLicenseSchema = softwareLicenseSchemaBase.partial().extend({
+    assign_to_asset_ids: z.array(z.coerce.number().int().positive()).optional() // No default, si no se envía no se tocan las asignaciones
+}).refine(data => {
+    return Object.keys(data).length > 0;
+}, { message: "Se debe proporcionar al menos un campo para actualizar." });
+
+// Podrías necesitar un schema para una asignación individual si creas un endpoint específico para ello
+export const assetLicenseAssignmentSchema = z.object({
+    asset_id: z.coerce.number().int().positive("ID de activo requerido."),
+    software_license_id: z.coerce.number().int().positive("ID de licencia requerido."),
+    installation_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").nullable().optional(),
+    notes: z.string().max(65535).nullable().optional(),
+});
 
 
 
@@ -154,48 +208,7 @@ export interface IAssetAPI extends RowDataPacket {
 
 
 
-// Enum para los tipos de licencia de software
-export const softwareLicenseTypeEnum = z.enum([
-    'oem',
-    'retail',
-    'volume_mak',
-    'volume_kms',
-    'subscription_user',
-    'subscription_device',
-    'concurrent',
-    'freeware',
-    'open_source',
-    'other'
-], {
-    required_error: "El tipo de licencia es requerido.",
-    invalid_type_error: "Tipo de licencia no válido.",
-});
 
-// Schema base para una licencia de software
-export const softwareLicenseSchemaBase = z.object({
-    asset_id: z.coerce.number().int().positive("ID de activo inválido.").nullable().optional(),
-    software_name: z.string().min(1, "El nombre del software es requerido.").max(255, "Máximo 255 caracteres."),
-    software_version: z.string().max(100, "Máximo 100 caracteres.").nullable().optional(),
-    license_key: z.string().max(255, "Máximo 255 caracteres.").nullable().optional(),
-    license_type: softwareLicenseTypeEnum,
-    seats: z.coerce.number().int().min(1, "Debe haber al menos 1 puesto.").default(1),
-    purchase_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").nullable().optional(),
-    purchase_cost: z.coerce.number().min(0, "El costo no puede ser negativo.").nullable().optional(),
-    expiry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").nullable().optional(),
-    supplier_company_id: z.coerce.number().int().positive("ID de proveedor inválido.").nullable().optional(),
-    invoice_number: z.string().max(100, "Máximo 100 caracteres.").nullable().optional(),
-    assigned_to_user_id: z.coerce.number().int().positive("ID de usuario inválido.").nullable().optional(),
-    notes: z.string().max(65535, "Notas demasiado largas.").nullable().optional(),
-});
-
-// Schema para crear una nueva licencia de software
-export const createSoftwareLicenseSchema = softwareLicenseSchemaBase;
-
-// Schema para actualizar una licencia de software (todos los campos son opcionales)
-export const updateSoftwareLicenseSchema = softwareLicenseSchemaBase.partial().refine(data => {
-    // Asegurarse de que al menos un campo se proporcione para la actualización
-    return Object.keys(data).length > 0;
-}, { message: "Se debe proporcionar al menos un campo para actualizar." });
 
 
 export const createUserSchema = z.object({
