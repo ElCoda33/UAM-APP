@@ -225,11 +225,17 @@ export default function AssetList() {
             case 'actions':
                 return (
                     <div className="relative flex items-center gap-1.5 sm:gap-2"> {/* Ajustado gap */}
+                        <Tooltip content="Ver en detalle">
+                            <Button isIconOnly size="sm" variant="light" onPress={() => router.push(`/dashboard/assets/${asset.id}`)}>
+                                <EyeIcon className="text-lg text-default-400" /> {/* Ajustado clase de color */}
+                            </Button>
+                        </Tooltip>
                         <Tooltip content="Editar Activo">
                             <Button isIconOnly size="sm" variant="light" onPress={() => router.push(`/dashboard/assets/${asset.id}/edit`)}>
                                 <EditIcon className="text-lg text-default-400" /> {/* Ajustado clase de color */}
                             </Button>
                         </Tooltip>
+
                         <Tooltip content="Mover Activo">
                             <Button isIconOnly size="sm" variant="light" onPress={() => router.push(`/dashboard/assets/${asset.id}/move`)}>
                                 <MoveUpRoundedIcon fontSize="small" className="text-lg text-default-400" /> {/* Ajustado clase de color */}

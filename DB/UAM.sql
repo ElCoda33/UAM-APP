@@ -476,3 +476,6 @@ VALUES (
     NOW(),
     NOW()
 );
+
+INSERT INTO users (email, password_hash, first_name, last_name, national_id, status, created_at, updated_at)
+VALUES ("nicolas.colman@fcea.edu.uy","$10$Vi3kBX7JFXPOPHl1V3p1qeJnHTVYLSXwtY5nBAq/v2CXs/Kx4C4R2","Nicolas","Colman","49108215","active",NOW(),NOW());

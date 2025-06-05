@@ -13,21 +13,20 @@ import { ArrowLeftIcon } from "@/components/icons/ArrowLeftIcon";
 import { EditIcon } from "@/components/icons/EditIcon";
 import AssetMovementsHistoryList from "@/app/dashboard/assets/components/AssetMovementsHistoryList";
 import LinkedSoftwareList from "../components/LinkedSoftwareList";
-import AssociatedDocumentsList from "../components/AssociatedDocumentsList";
+// Importa el componente genérico de documentos desde su nueva ubicación (si lo moviste)
+// o desde la ubicación anterior si solo modificaste el archivo existente.
+// Asumiré que lo moviste a una carpeta de componentes más general.
+import AssociatedDocumentsList from "@/app/dashboard/components/AssociatedDocumentsList"; // RUTA ACTUALIZADA
 
-// Tipos de datos
-// Esta interfaz debe coincidir con lo que devuelve GET /api/assets/[id]
-// (detalles del activo, pero SIN linked_software_licenses, ya que LinkedSoftwareList lo carga)
-import { IAssetAPI } from "@/lib/schema"; // Asumiendo que IAssetAPI es la correcta para el detalle del activo
-// sin las licencias anidadas.
+import { IAssetAPI } from "@/lib/schema";
+import { formatCustomDate } from "@/lib/utils";
 
-// Interfaz para la asignación de usuario (puedes moverla a un archivo de tipos)
 interface AssetUserAssignmentInfo {
     user_id: number;
     user_name: string;
     user_email?: string | null;
     user_section_name?: string | null;
-    assignment_date: string; // Fecha de asignación
+    assignment_date: string;
 }
 
 const statusColorMap: Record<string, "success" | "danger" | "warning" | "primary" | "secondary" | "default"> = {
@@ -48,18 +47,13 @@ const DetailItem = ({ label, value, children }: { label: string; value?: string 
     );
 };
 
-// Usaremos formatCustomDate de lib/utils.ts
-import { formatCustomDate } from "@/lib/utils";
-
-
 export default function AssetDetailPage() {
     const params = useParams();
-    const router = useRouter(); // No se usa explícitamente aquí, pero es común tenerlo
+    const router = useRouter();
     const assetIdFromParams = parseInt(params.id as string, 10);
 
     const [asset, setAsset] = useState<IAssetAPI | null>(null);
     const [currentUserAssignment, setCurrentUserAssignment] = useState<AssetUserAssignmentInfo | null>(null);
-
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -72,7 +66,6 @@ export default function AssetDetailPage() {
         setIsLoading(true);
         setError(null);
         try {
-            // 1. Fetch principal del activo
             const assetRes = await fetch(`/api/assets/${assetIdFromParams}`);
             if (!assetRes.ok) {
                 const errData = await assetRes.json().catch(() => ({}));
@@ -81,30 +74,25 @@ export default function AssetDetailPage() {
             const assetData: IAssetAPI = await assetRes.json();
             setAsset(assetData);
 
-            // 2. Fetch asignación actual a usuario (si el activo se cargó)
             if (assetData) {
-                const assignmentRes = await fetch(`/api/assets/${assetIdFromParams}/assignments`); // Endpoint dedicado
+                const assignmentRes = await fetch(`/api/assets/${assetIdFromParams}/assignments`);
                 if (assignmentRes.ok) {
                     const assignmentData = await assignmentRes.json();
                     if (Array.isArray(assignmentData) && assignmentData.length > 0) {
-                        // Asumimos que la API devuelve la asignación activa (más reciente sin return_date) o un array
-                        // Si devuelve múltiples, podrías necesitar lógica para encontrar la "actual"
                         setCurrentUserAssignment(assignmentData[0] as AssetUserAssignmentInfo);
                     } else if (!Array.isArray(assignmentData) && assignmentData && Object.keys(assignmentData).length > 0) {
-                        // Si la API devuelve un solo objeto o null
                         setCurrentUserAssignment(assignmentData as AssetUserAssignmentInfo);
                     } else {
-                        setCurrentUserAssignment(null); // No hay asignación o es un array vacío
+                        setCurrentUserAssignment(null);
                     }
                 } else {
                     console.warn(`No se pudo cargar la asignación de usuario para el activo ${assetIdFromParams}. Status: ${assignmentRes.status}`);
                     setCurrentUserAssignment(null);
                 }
             }
-
         } catch (err: any) {
             setError(err.message);
-            setAsset(null); // Limpiar datos del activo en caso de error
+            setAsset(null);
             setCurrentUserAssignment(null);
             toast.error(err.message || "No se pudieron cargar los detalles principales del activo.");
         } finally {
@@ -112,12 +100,10 @@ export default function AssetDetailPage() {
         }
     }, [assetIdFromParams]);
 
-
     useEffect(() => {
         fetchMainAssetData();
-    }, [fetchMainAssetData]); // Dependencia de la función memoizada
+    }, [fetchMainAssetData]);
 
-    // Funciones de formato (pueden estar en utils)
     const formatDateForDisplay = (dateString: string | null | undefined, includeTime: boolean = false) => {
         return formatCustomDate(dateString, {
             locale: 'es-UY',
@@ -126,10 +112,9 @@ export default function AssetDetailPage() {
             year: 'numeric',
             hour: includeTime ? '2-digit' : undefined,
             minute: includeTime ? '2-digit' : undefined,
-            timeZone: 'UTC' // O la zona horaria relevante si tus fechas no son solo YYYY-MM-DD
+            timeZone: 'UTC'
         });
     };
-
 
     if (isLoading && !asset) {
         return (
@@ -151,12 +136,12 @@ export default function AssetDetailPage() {
         );
     }
 
-    if (!asset) return null; // Si asset es null después de cargar, no renderizar nada más
+    if (!asset) return null;
 
-    const validAssetIdForChildren = !isNaN(assetIdFromParams) && assetIdFromParams > 0 ? assetIdFromParams : null;
+    const validEntityIdForChildren = !isNaN(assetIdFromParams) && assetIdFromParams > 0 ? assetIdFromParams : null;
 
     return (
-        <div className="space-y-6 pb-8"> {/* Añadido padding-bottom */}
+        <div className="space-y-6 pb-8">
             <div className="flex justify-between items-center mb-6">
                 <Button as={HeroUILink} href="/dashboard/assets" variant="flat" startContent={<ArrowLeftIcon />}>
                     Volver a Activos
@@ -166,7 +151,6 @@ export default function AssetDetailPage() {
                 </Button>
             </div>
 
-            {/* --- Información General del Activo --- */}
             <Card className="shadow-xl">
                 <CardHeader className="gap-3 p-4 sm:p-5">
                     {asset.image_url ? (
@@ -210,7 +194,6 @@ export default function AssetDetailPage() {
                 </CardBody>
             </Card>
 
-            {/* --- Persona Vinculada (si existe) --- */}
             {currentUserAssignment && (
                 <Card className="shadow-xl">
                     <CardHeader><h2 className="text-lg font-semibold text-foreground px-4 sm:px-5 pt-4 sm:pt-5">Persona Asignada Actualmente</h2></CardHeader>
@@ -218,7 +201,6 @@ export default function AssetDetailPage() {
                     <CardBody className="flex flex-col sm:flex-row items-center gap-4 p-4 sm:p-5">
                         <Avatar
                             name={(currentUserAssignment.user_name || "U").charAt(0)}
-                            // src={currentUserAssignment.user_avatar_url} // Si tuvieras avatar del usuario
                             className="w-16 h-16 text-xl bg-secondary-100 text-secondary-700"
                         />
                         <div>
@@ -231,20 +213,19 @@ export default function AssetDetailPage() {
                 </Card>
             )}
 
-            {/* --- Software Vinculado (Usa componente hijo) --- */}
-            <LinkedSoftwareList assetId={validAssetIdForChildren} />
+            <LinkedSoftwareList assetId={validEntityIdForChildren} />
 
-            {/* --- Documentos Asociados (Usa componente hijo) --- */}
+            {/* --- Uso del componente genérico AssociatedDocumentsList --- */}
             <AssociatedDocumentsList
-                assetId={validAssetIdForChildren}
-                assetName={asset?.product_name || undefined}
+                entityId={validEntityIdForChildren}
+                entityType="asset" // Especificamos que la entidad es un 'asset'
+                entityNameFriendly={asset.product_name || `Activo ID ${asset.id}`}
             />
 
-            {/* --- Historial de Movimientos (Usa componente hijo) --- */}
             <Card className="shadow-xl">
                 <CardHeader><h2 className="text-xl font-semibold text-foreground px-4 sm:px-5 pt-4 sm:pt-5">Historial de Movimientos</h2></CardHeader>
                 <Divider />
-                <CardBody className="p-0 sm:p-0"> {/* Ajustar padding si AssetMovementsHistoryList lo maneja */}
+                <CardBody className="p-0 sm:p-0">
                     <AssetMovementsHistoryList assetId={assetIdFromParams} assetName={asset.product_name || undefined} />
                 </CardBody>
             </Card>

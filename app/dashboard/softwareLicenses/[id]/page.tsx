@@ -18,16 +18,18 @@ import { toast } from "react-hot-toast";
 import { ArrowLeftIcon } from "@/components/icons/ArrowLeftIcon";
 import { EditIcon } from "@/components/icons/EditIcon";
 
-// Iconos corregidos/alternativos
-import SyncIcon from '@mui/icons-material/Sync';         // Para Renovar
-import IosShareIcon from '@mui/icons-material/IosShare'; // Para Transferir
-import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined'; // Para Revocar
-
+// Iconos
+import SyncIcon from '@mui/icons-material/Sync';
+import IosShareIcon from '@mui/icons-material/IosShare';
+import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
 
 import type { SoftwareLicenseDetailAPIRecord, AssignedAssetInfo } from "@/app/api/softwareLicenses/[id]/route";
 import type { UserDetailsFromDB } from "@/lib/data/users";
 import { getLicenseChipStatus, formatDate, formatLicenseType } from "../components/softwareLicenseList/utils";
 import { EyeIcon } from "@/components/icons/EyeIcon";
+
+// Importar el componente genérico de documentos
+import AssociatedDocumentsList from "@/app/dashboard/components/AssociatedDocumentsList";
 
 
 const DetailItem = ({ label, value, children }: { label: string; value?: string | number | null; children?: React.ReactNode }) => {
@@ -121,6 +123,8 @@ export default function SoftwareLicenseDetailPage() {
         { uid: "actions", name: "Ver Activo" },
     ];
 
+    const validEntityIdForChildren = !isNaN(licenseId) && licenseId > 0 ? licenseId : null;
+
     return (
         <div className="container mx-auto max-w-5xl p-4 sm:p-6 lg:p-8 space-y-6">
             <div className="flex justify-between items-center">
@@ -207,7 +211,7 @@ export default function SoftwareLicenseDetailPage() {
                                                     </Button>
                                                 </TableCell>;
                                             }
-                                            if (key === "installation_date") {
+                                            if (key === "installation_date") { // Corregido para usar item en lugar de license
                                                 return <TableCell>{formatDate(item.installation_date)}</TableCell>;
                                             }
                                             return <TableCell>{String(item[key as keyof AssignedAssetInfo] ?? "N/A")}</TableCell>;
@@ -221,11 +225,17 @@ export default function SoftwareLicenseDetailPage() {
                     )}
                 </CardBody>
             </Card>
+            {/* --- Documentos Asociados a la Licencia de Software --- */}
+            <AssociatedDocumentsList
+                entityId={validEntityIdForChildren} // licenseId
+                entityType="software_license" // Especificamos el tipo de entidad
+                entityNameFriendly={license.software_name || `Licencia ID ${license.id}`}
+            />
 
             {assignedUser && (
                 <Card className="shadow-lg">
                     <CardHeader>
-                        <h2 className="text-xl font-semibold text-foreground">Persona Vinculada a la Licencia</h2>
+                        <h2 className="text-xl font-semibold text-foreground">Persona Responsable de la Licencia</h2>
                     </CardHeader>
                     <Divider />
                     <CardBody className="flex flex-col sm:flex-row items-center gap-4">
@@ -244,6 +254,9 @@ export default function SoftwareLicenseDetailPage() {
                     </CardBody>
                 </Card>
             )}
+
+
+
         </div>
     );
 }
