@@ -6,6 +6,7 @@ import { getPool } from '@/lib/db';
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import bcrypt from 'bcrypt';
 import type { UserDetailsFromDB } from '@/lib/data/users';
+import { createUserSchema } from '@/lib/schema';
 
 // GET: Obtener todos los usuarios (activos y con datos relacionados)
 export async function GET(request: NextRequest) {
