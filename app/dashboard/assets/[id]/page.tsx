@@ -1,42 +1,33 @@
 // app/dashboard/assets/[id]/page.tsx
 "use client";
 
-import React, { useEffect, useState, FormEvent, ChangeEvent, useCallback } from "react"; // Añadido FormEvent, ChangeEvent
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
     Card, CardHeader, CardBody, Divider, Chip, Spinner, Button,
-    Link as HeroUILink, Avatar, Table, TableHeader, TableColumn,
-    TableBody, TableRow, TableCell, Image as HeroUIImage, Tooltip,
-    Input, Textarea, Select, SelectItem // Añadidos para el formulario de subida
+    Link as HeroUILink, Avatar, Image as HeroUIImage, Tooltip
 } from "@heroui/react";
 import { toast } from "react-hot-toast";
-import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
+
 import { ArrowLeftIcon } from "@/components/icons/ArrowLeftIcon";
 import { EditIcon } from "@/components/icons/EditIcon";
-import { EyeIcon } from "@/components/icons/EyeIcon";
 import AssetMovementsHistoryList from "@/app/dashboard/assets/components/AssetMovementsHistoryList";
-import { IAssetAPI } from "@/lib/schema";
-import { DownloadIcon } from "@/components/icons/DownloadIcon"; // Para el botón de descarga
+import LinkedSoftwareList from "../components/LinkedSoftwareList";
+import AssociatedDocumentsList from "../components/AssociatedDocumentsList";
 
-// Interfaz para la respuesta del endpoint que creamos en Paso 1
-import type { AssetDocumentInfo } from "@/app/api/assets/[id]/documents/route"; // Ajusta la ruta si es diferente
+// Tipos de datos
+// Esta interfaz debe coincidir con lo que devuelve GET /api/assets/[id]
+// (detalles del activo, pero SIN linked_software_licenses, ya que LinkedSoftwareList lo carga)
+import { IAssetAPI } from "@/lib/schema"; // Asumiendo que IAssetAPI es la correcta para el detalle del activo
+// sin las licencias anidadas.
 
-
-// Interfaces para los datos adicionales que se cargarán (software y asignación de usuario)
-interface AssetSoftwareLicenseInfo {
-    software_license_id: number;
-    software_name: string;
-    license_type: string;
-    expiry_date?: string | null;
-    installation_date_on_asset: string | null;
-}
-
+// Interfaz para la asignación de usuario (puedes moverla a un archivo de tipos)
 interface AssetUserAssignmentInfo {
     user_id: number;
     user_name: string;
     user_email?: string | null;
     user_section_name?: string | null;
-    assignment_date: string;
+    assignment_date: string; // Fecha de asignación
 }
 
 const statusColorMap: Record<string, "success" | "danger" | "warning" | "primary" | "secondary" | "default"> = {
@@ -57,201 +48,90 @@ const DetailItem = ({ label, value, children }: { label: string; value?: string 
     );
 };
 
-// Opciones para la categoría del documento
-const documentCategories = [
-    { key: "invoice_purchase", label: "Factura de Compra" },
-    { key: "warranty_certificate", label: "Certificado de Garantía" },
-    { key: "user_manual", label: "Manual de Usuario" },
-    { key: "contract", label: "Contrato" },
-    { key: "technical_report", label: "Informe Técnico" },
-    { key: "other", label: "Otro" },
-];
+// Usaremos formatCustomDate de lib/utils.ts
+import { formatCustomDate } from "@/lib/utils";
 
 
 export default function AssetDetailPage() {
     const params = useParams();
-    const router = useRouter();
-    const assetId = parseInt(params.id as string, 10);
+    const router = useRouter(); // No se usa explícitamente aquí, pero es común tenerlo
+    const assetIdFromParams = parseInt(params.id as string, 10);
 
     const [asset, setAsset] = useState<IAssetAPI | null>(null);
-    const [assignedSoftware, setAssignedSoftware] = useState<AssetSoftwareLicenseInfo[]>([]);
     const [currentUserAssignment, setCurrentUserAssignment] = useState<AssetUserAssignmentInfo | null>(null);
-
-    // Estados para documentos
-    const [assetDocuments, setAssetDocuments] = useState<AssetDocumentInfo[]>([]);
-    const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
-    const [showUploadForm, setShowUploadForm] = useState(false);
-    const [fileToUpload, setFileToUpload] = useState<File | null>(null);
-    const [documentCategory, setDocumentCategory] = useState<string>(documentCategories[0].key);
-    const [documentDescription, setDocumentDescription] = useState("");
-    const [isUploadingDocument, setIsUploadingDocument] = useState(false);
 
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchAssetDocuments = useCallback(async () => {
-        if (isNaN(assetId)) return;
-        setIsLoadingDocuments(true);
-        try {
-            const docsRes = await fetch(`/api/assets/${assetId}/documents`);
-            if (docsRes.ok) {
-                setAssetDocuments(await docsRes.json());
-            } else {
-                console.warn(`No se pudieron cargar los documentos para el activo ${assetId}`);
-                toast.error('No se pudieron cargar los documentos asociados.');
-            }
-        } catch (docError) {
-            console.error("Error fetching documents:", docError);
-            toast.error("Error al cargar la lista de documentos.");
-        } finally {
-            setIsLoadingDocuments(false);
-        }
-    }, [assetId]);
-
-
-    useEffect(() => {
-        if (isNaN(assetId)) {
+    const fetchMainAssetData = useCallback(async () => {
+        if (isNaN(assetIdFromParams) || assetIdFromParams <= 0) {
             setError("ID de activo no válido.");
             setIsLoading(false);
             return;
         }
+        setIsLoading(true);
+        setError(null);
+        try {
+            // 1. Fetch principal del activo
+            const assetRes = await fetch(`/api/assets/${assetIdFromParams}`);
+            if (!assetRes.ok) {
+                const errData = await assetRes.json().catch(() => ({}));
+                throw new Error(errData.message || `Error al cargar el activo (ID: ${assetIdFromParams}): ${assetRes.statusText}`);
+            }
+            const assetData: IAssetAPI = await assetRes.json();
+            setAsset(assetData);
 
-        const fetchAllAssetData = async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                const assetRes = await fetch(`/api/assets/${assetId}`);
-                if (!assetRes.ok) {
-                    const errData = await assetRes.json().catch(() => ({}));
-                    throw new Error(errData.message || `Error al cargar el activo: ${assetRes.statusText}`);
-                }
-                const assetData: IAssetAPI = await assetRes.json();
-                setAsset(assetData);
-
-                // Licencias (asumiendo que el endpoint /api/assets/[id] ya las incluye como 'linked_software_licenses')
-                if (assetData && (assetData as any).linked_software_licenses) {
-                    setAssignedSoftware((assetData as any).linked_software_licenses);
-                } else {
-                    // Fallback si no vienen en la respuesta principal (requeriría un endpoint dedicado)
-                    // console.warn("Licencias no incluidas en la respuesta principal del activo. Se necesitaría un fetch separado.");
-                }
-
-
-                // Fetch asignación actual a usuario (endpoint dedicado)
-                const assignmentRes = await fetch(`/api/assets/${assetId}/assignments`);
+            // 2. Fetch asignación actual a usuario (si el activo se cargó)
+            if (assetData) {
+                const assignmentRes = await fetch(`/api/assets/${assetIdFromParams}/assignments`); // Endpoint dedicado
                 if (assignmentRes.ok) {
                     const assignmentData = await assignmentRes.json();
                     if (Array.isArray(assignmentData) && assignmentData.length > 0) {
+                        // Asumimos que la API devuelve la asignación activa (más reciente sin return_date) o un array
+                        // Si devuelve múltiples, podrías necesitar lógica para encontrar la "actual"
                         setCurrentUserAssignment(assignmentData[0] as AssetUserAssignmentInfo);
-                    } else if (!Array.isArray(assignmentData) && assignmentData) {
+                    } else if (!Array.isArray(assignmentData) && assignmentData && Object.keys(assignmentData).length > 0) {
+                        // Si la API devuelve un solo objeto o null
                         setCurrentUserAssignment(assignmentData as AssetUserAssignmentInfo);
+                    } else {
+                        setCurrentUserAssignment(null); // No hay asignación o es un array vacío
                     }
                 } else {
-                    console.warn(`No se pudo cargar la asignación de usuario para el activo ${assetId}`);
+                    console.warn(`No se pudo cargar la asignación de usuario para el activo ${assetIdFromParams}. Status: ${assignmentRes.status}`);
+                    setCurrentUserAssignment(null);
                 }
-
-                // Fetch documentos
-                await fetchAssetDocuments();
-
-            } catch (err: any) {
-                setError(err.message);
-                toast.error(err.message || "No se pudieron cargar todos los detalles del activo.");
-            } finally {
-                setIsLoading(false);
             }
-        };
-        fetchAllAssetData();
-    }, [assetId, fetchAssetDocuments]);
 
-    const formatDate = (dateString: string | null | undefined, includeTime: boolean = false) => {
-        if (!dateString) return "N/A";
-        try {
-            const date = new Date(dateString);
-            const options: Intl.DateTimeFormatOptions = {
-                year: 'numeric', month: '2-digit', day: '2-digit',
-                timeZone: 'UTC'
-            };
-            if (includeTime) {
-                options.hour = '2-digit';
-                options.minute = '2-digit';
-            }
-            return date.toLocaleDateString('es-UY', options);
-        } catch (e) { return "Fecha inválida"; }
-    };
-
-    const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setFileToUpload(e.target.files[0]);
-        } else {
-            setFileToUpload(null);
-        }
-    };
-
-    const handleDocumentUpload = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!fileToUpload) {
-            toast.error("Por favor, selecciona un archivo para subir.");
-            return;
-        }
-        if (!assetId) {
-            toast.error("No se pudo determinar el ID del activo.");
-            return;
-        }
-
-        setIsUploadingDocument(true);
-        const uploadToastId = toast.loading("Subiendo documento...");
-
-        const formData = new FormData();
-        formData.append('invoiceFile', fileToUpload); // 'invoiceFile' es lo que espera el API
-        formData.append('entityType', 'asset');
-        formData.append('entityId', String(assetId));
-        formData.append('documentCategory', documentCategory);
-        if (documentDescription.trim()) {
-            formData.append('description', documentDescription.trim());
-        }
-
-        try {
-            const response = await fetch('/api/documents/upload', {
-                method: 'POST',
-                body: formData,
-            });
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.message || "Error al subir el documento.");
-            }
-            toast.success(result.message || "Documento subido correctamente.", { id: uploadToastId });
-            setFileToUpload(null);
-            setDocumentCategory(documentCategories[0].key);
-            setDocumentDescription("");
-            setShowUploadForm(false);
-            await fetchAssetDocuments(); // Recargar la lista de documentos
-        } catch (uploadError: any) {
-            toast.error(uploadError.message || "No se pudo subir el documento.", { id: uploadToastId });
+        } catch (err: any) {
+            setError(err.message);
+            setAsset(null); // Limpiar datos del activo en caso de error
+            setCurrentUserAssignment(null);
+            toast.error(err.message || "No se pudieron cargar los detalles principales del activo.");
         } finally {
-            setIsUploadingDocument(false);
+            setIsLoading(false);
         }
+    }, [assetIdFromParams]);
+
+
+    useEffect(() => {
+        fetchMainAssetData();
+    }, [fetchMainAssetData]); // Dependencia de la función memoizada
+
+    // Funciones de formato (pueden estar en utils)
+    const formatDateForDisplay = (dateString: string | null | undefined, includeTime: boolean = false) => {
+        return formatCustomDate(dateString, {
+            locale: 'es-UY',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: includeTime ? '2-digit' : undefined,
+            minute: includeTime ? '2-digit' : undefined,
+            timeZone: 'UTC' // O la zona horaria relevante si tus fechas no son solo YYYY-MM-DD
+        });
     };
 
-    const documentTableColumns = [
-        { uid: "icon", name: "Tipo" },
-        { uid: "original_filename", name: "Nombre Archivo" },
-        { uid: "document_category", name: "Categoría" },
-        { uid: "description", name: "Descripción" },
-        { uid: "created_at", name: "Fecha Subida" },
-        { uid: "actions", name: "Acciones" },
-    ];
 
-    const getFileIcon = (mimeType: string) => {
-        if (mimeType.includes('pdf')) return '📄'; // PDF
-        if (mimeType.includes('image')) return '🖼️'; // Imagen
-        if (mimeType.includes('word')) return '📝'; // Word
-        if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '📊'; // Excel
-        return '📎'; // Genérico
-    };
-
-
-    if (isLoading && !asset) { // Ajustada condición de carga principal
+    if (isLoading && !asset) {
         return (
             <div className="flex justify-center items-center h-[calc(100vh-120px)]">
                 <Spinner label="Cargando detalles del activo..." color="primary" size="lg" />
@@ -259,11 +139,11 @@ export default function AssetDetailPage() {
         );
     }
 
-    if (error || (!isLoading && !asset)) { // Ajustada condición de error
+    if (error || (!isLoading && !asset)) {
         return (
             <div className="container mx-auto p-8 text-center">
                 <h1 className="text-xl font-bold mb-4 text-danger-500">Error</h1>
-                <p className="mb-6">{error || `Activo con ID ${assetId} no encontrado.`}</p>
+                <p className="mb-6">{error || `Activo con ID ${assetIdFromParams} no encontrado o inaccesible.`}</p>
                 <Button as={HeroUILink} href="/dashboard/assets" startContent={<ArrowLeftIcon />}>
                     Volver a Lista de Activos
                 </Button>
@@ -271,18 +151,13 @@ export default function AssetDetailPage() {
         );
     }
 
-    if (!asset) return null; // Fallback por si acaso, aunque las condiciones anteriores deberían cubrirlo
+    if (!asset) return null; // Si asset es null después de cargar, no renderizar nada más
 
-    const softwareColumns = [
-        { uid: "software_name", name: "Software" },
-        { uid: "license_type", name: "Tipo Lic." },
-        { uid: "expiry_date", name: "Vencimiento" },
-        { uid: "actions", name: "Ver Licencia" },
-    ];
+    const validAssetIdForChildren = !isNaN(assetIdFromParams) && assetIdFromParams > 0 ? assetIdFromParams : null;
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="space-y-6 pb-8"> {/* Añadido padding-bottom */}
+            <div className="flex justify-between items-center mb-6">
                 <Button as={HeroUILink} href="/dashboard/assets" variant="flat" startContent={<ArrowLeftIcon />}>
                     Volver a Activos
                 </Button>
@@ -291,198 +166,86 @@ export default function AssetDetailPage() {
                 </Button>
             </div>
 
-            <Card>
-                <CardHeader className="gap-3">
+            {/* --- Información General del Activo --- */}
+            <Card className="shadow-xl">
+                <CardHeader className="gap-3 p-4 sm:p-5">
                     {asset.image_url ? (
-                        <HeroUIImage src={asset.image_url} alt={asset.product_name || "Imagen del activo"} width={80} height={80} className="rounded-md object-cover" />
+                        <HeroUIImage
+                            src={asset.image_url}
+                            alt={asset.product_name || "Imagen del activo"}
+                            width={80} height={80}
+                            className="rounded-lg object-cover border border-default-200"
+                            removeWrapper
+                        />
                     ) : (
-                        <Avatar name={(asset.product_name || "A").charAt(0)} className="w-20 h-20 text-3xl" />
+                        <Avatar name={(asset.product_name || "A").charAt(0)} className="w-20 h-20 text-3xl bg-primary-100 text-primary-600" />
                     )}
-                    <div className="flex flex-col">
-                        <h1 className="text-2xl font-bold">{asset.product_name}</h1>
-                        <p className="text-sm text-default-500">
+                    <div className="flex flex-col flex-grow">
+                        <h1 className="text-xl sm:text-2xl font-bold text-foreground">{asset.product_name}</h1>
+                        <p className="text-xs sm:text-sm text-default-500">
                             ID: {asset.id} | Inventario: {asset.inventory_code}
                             {asset.serial_number && ` | S/N: ${asset.serial_number}`}
                         </p>
                     </div>
-                    <Chip color={statusColorMap[asset.status!] || "default"} variant="flat" className="ml-auto self-start">{asset.status?.replace(/_/g, " ") || "Desconocido"}</Chip>
+                    {asset.status && (
+                        <Chip color={statusColorMap[asset.status] || "default"} variant="flat" className="ml-auto self-start capitalize">
+                            {asset.status.replace(/_/g, " ")}
+                        </Chip>
+                    )}
                 </CardHeader>
                 <Divider />
-                <CardBody>
-                    <dl className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
-                        <DetailItem label="Descripción" value={asset.description} />
+                <CardBody className="p-4 sm:p-5">
+                    <dl className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                        <DetailItem label="Descripción">{asset.description || "N/A"}</DetailItem>
                         <DetailItem label="Sección Actual" value={asset.current_section_name} />
                         <DetailItem label="Ubicación Actual" value={asset.current_location_name} />
                         <DetailItem label="Proveedor" value={asset.supplier_company_name} />
-                        <DetailItem label="Fecha de Compra" value={formatDate(asset.purchase_date)} />
+                        <DetailItem label="Fecha de Compra" value={formatDateForDisplay(asset.purchase_date)} />
                         <DetailItem label="Nº Factura Compra" value={asset.invoice_number} />
-                        <DetailItem label="Vencimiento Garantía" value={formatDate(asset.warranty_expiry_date)} />
+                        <DetailItem label="Vencimiento Garantía" value={formatDateForDisplay(asset.warranty_expiry_date)} />
                         <DetailItem label="Procedimiento de Adquisición" value={asset.acquisition_procedure} />
-                        <DetailItem label="Creado el" value={formatDate(asset.created_at, true)} />
-                        <DetailItem label="Última Actualización" value={formatDate(asset.updated_at, true)} />
+                        <DetailItem label="Creado el" value={formatDateForDisplay(asset.created_at, true)} />
+                        <DetailItem label="Última Actualización" value={formatDateForDisplay(asset.updated_at, true)} />
                     </dl>
                 </CardBody>
             </Card>
 
+            {/* --- Persona Vinculada (si existe) --- */}
             {currentUserAssignment && (
-                <Card>
-                    <CardHeader><h2 className="text-xl font-semibold">Persona Asignada Actualmente</h2></CardHeader>
+                <Card className="shadow-xl">
+                    <CardHeader><h2 className="text-lg font-semibold text-foreground px-4 sm:px-5 pt-4 sm:pt-5">Persona Asignada Actualmente</h2></CardHeader>
                     <Divider />
-                    <CardBody className="flex flex-row items-center gap-4">
-                        <Avatar name={currentUserAssignment.user_name.charAt(0) || 'U'} className="w-16 h-16 text-xl" />
+                    <CardBody className="flex flex-col sm:flex-row items-center gap-4 p-4 sm:p-5">
+                        <Avatar
+                            name={(currentUserAssignment.user_name || "U").charAt(0)}
+                            // src={currentUserAssignment.user_avatar_url} // Si tuvieras avatar del usuario
+                            className="w-16 h-16 text-xl bg-secondary-100 text-secondary-700"
+                        />
                         <div>
-                            <p className="font-semibold">{currentUserAssignment.user_name}</p>
+                            <p className="font-semibold text-md">{currentUserAssignment.user_name}</p>
                             {currentUserAssignment.user_email && <p className="text-sm text-default-600">{currentUserAssignment.user_email}</p>}
                             {currentUserAssignment.user_section_name && <p className="text-sm text-default-500">Sección: {currentUserAssignment.user_section_name}</p>}
-                            <p className="text-xs text-default-500">Asignado el: {formatDate(currentUserAssignment.assignment_date)}</p>
+                            <p className="text-xs text-default-500 mt-1">Asignado el: {formatDateForDisplay(currentUserAssignment.assignment_date)}</p>
                         </div>
                     </CardBody>
                 </Card>
             )}
 
-            <Card>
-                <CardHeader><h2 className="text-xl font-semibold">Software Vinculado ({assignedSoftware.length})</h2></CardHeader>
+            {/* --- Software Vinculado (Usa componente hijo) --- */}
+            <LinkedSoftwareList assetId={validAssetIdForChildren} />
+
+            {/* --- Documentos Asociados (Usa componente hijo) --- */}
+            <AssociatedDocumentsList
+                assetId={validAssetIdForChildren}
+                assetName={asset?.product_name || undefined}
+            />
+
+            {/* --- Historial de Movimientos (Usa componente hijo) --- */}
+            <Card className="shadow-xl">
+                <CardHeader><h2 className="text-xl font-semibold text-foreground px-4 sm:px-5 pt-4 sm:pt-5">Historial de Movimientos</h2></CardHeader>
                 <Divider />
-                <CardBody>
-                    {assignedSoftware.length > 0 ? (
-                        <Table aria-label="Software vinculado al activo" removeWrapper>
-                            <TableHeader columns={softwareColumns}>
-                                {(column) => <TableColumn key={column.uid}>{column.name}</TableColumn>}
-                            </TableHeader>
-                            <TableBody items={assignedSoftware} emptyContent="No hay software vinculado.">
-                                {(item: AssetSoftwareLicenseInfo) => (
-                                    <TableRow key={item.software_license_id}>
-                                        {(columnKey) => {
-                                            if (columnKey === "actions") {
-                                                return <TableCell>
-                                                    <Button as={HeroUILink} href={`/dashboard/softwareLicenses/${item.software_license_id}`} isIconOnly variant="light" size="sm">
-                                                        <EyeIcon className="text-lg" />
-                                                    </Button>
-                                                </TableCell>;
-                                            }
-                                            if (columnKey === "expiry_date") {
-                                                return <TableCell>{formatDate(item.expiry_date) || "Perpetua"}</TableCell>;
-                                            }
-                                            return <TableCell>{String(item[columnKey as keyof AssetSoftwareLicenseInfo] ?? "N/A")}</TableCell>;
-                                        }}
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    ) : <p className="text-default-500">No hay licencias de software directamente asignadas a este activo.</p>}
-                </CardBody>
-            </Card>
-
-            {/* Sección de Documentos Asociados */}
-            <Card>
-                <CardHeader className="flex justify-between items-center">
-                    <h2 className="text-xl font-semibold">Documentos Asociados ({assetDocuments.length})</h2>
-                    <Button
-                        size="sm"
-                        color="primary"
-                        variant="ghost"
-                        startContent={<CloudUploadOutlinedIcon/>}
-                        onPress={() => setShowUploadForm(!showUploadForm)}
-                    >
-                        {showUploadForm ? "Cancelar Subida" : "Adjuntar Documento"}
-                    </Button>
-                </CardHeader>
-                <Divider />
-                <CardBody>
-                    {showUploadForm && (
-                        <form onSubmit={handleDocumentUpload} className="space-y-4 p-4 mb-6 border border-dashed border-default-300 rounded-md">
-                            <h3 className="text-md font-medium">Nuevo Documento</h3>
-                            <Input
-                                type="file"
-                                label="Seleccionar archivo"
-                                onChange={handleFileChange}
-                                variant="bordered"
-                                isRequired
-                                isDisabled={isUploadingDocument}
-                                accept=".pdf,.jpg,.jpeg,.png,.webp" // Tipos de archivo permitidos
-                            />
-                            <Select
-                                label="Categoría del Documento"
-                                placeholder="Seleccionar categoría"
-                                selectedKeys={documentCategory ? [documentCategory] : []}
-                                onSelectionChange={(keys) => setDocumentCategory(Array.from(keys as Set<string>)[0])}
-                                variant="bordered"
-                                isRequired
-                                isDisabled={isUploadingDocument}
-                            >
-                                {documentCategories.map((cat) => (
-                                    <SelectItem key={cat.key} value={cat.key}>{cat.label}</SelectItem>
-                                ))}
-                            </Select>
-                            <Textarea
-                                label="Descripción (Opcional)"
-                                value={documentDescription}
-                                onValueChange={setDocumentDescription}
-                                variant="bordered"
-                                minRows={2}
-                                isDisabled={isUploadingDocument}
-                            />
-                            <Button type="submit" color="success" isLoading={isUploadingDocument} isDisabled={!fileToUpload || isUploadingDocument}>
-                                {isUploadingDocument ? "Subiendo..." : "Confirmar y Subir Documento"}
-                            </Button>
-                        </form>
-                    )}
-
-                    {isLoadingDocuments && <div className="flex justify-center p-4"><Spinner label="Cargando documentos..." /></div>}
-                    {!isLoadingDocuments && assetDocuments.length > 0 ? (
-                        <Table aria-label="Documentos asociados al activo" removeWrapper>
-                            <TableHeader columns={documentTableColumns}>
-                                {(column) => <TableColumn key={column.uid}>{column.name}</TableColumn>}
-                            </TableHeader>
-                            <TableBody items={assetDocuments} emptyContent="No hay documentos adjuntos a este activo.">
-                                {(item: AssetDocumentInfo) => (
-                                    <TableRow key={item.id}>
-                                        {(columnKey) => {
-                                            if (columnKey === "icon") {
-                                                return <TableCell className="text-xl">{getFileIcon(item.mime_type)}</TableCell>;
-                                            }
-                                            if (columnKey === "actions") {
-                                                return (
-                                                    <TableCell>
-                                                        <Button
-                                                            as="a" // Cambiado a "a" para que funcione como enlace
-                                                            href={`/api/documents/${item.id}`} // Enlace directo al endpoint de descarga
-                                                            target="_blank" // Opcional: abrir en nueva pestaña
-                                                            isIconOnly
-                                                            variant="light"
-                                                            size="sm"
-                                                            aria-label="Descargar documento"
-                                                        >
-                                                            <DownloadIcon className="text-lg text-primary-500" />
-                                                        </Button>
-                                                    </TableCell>
-                                                );
-                                            }
-                                            if (columnKey === "created_at") {
-                                                return <TableCell>{formatDate(item.created_at, true)}</TableCell>;
-                                            }
-                                            if (columnKey === "document_category") {
-                                                const category = documentCategories.find(c => c.key === item.document_category);
-                                                return <TableCell>{category ? category.label : item.document_category || "N/A"}</TableCell>;
-                                            }
-                                            return <TableCell>{String(item[columnKey as keyof AssetDocumentInfo] ?? "N/A")}</TableCell>;
-                                        }}
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    ) : (
-                        !isLoadingDocuments && <p className="text-default-500">No hay documentos adjuntos a este activo.</p>
-                    )}
-                </CardBody>
-            </Card>
-
-
-            <Card>
-                <CardHeader><h2 className="text-xl font-semibold">Historial de Movimientos</h2></CardHeader>
-                <Divider />
-                <CardBody>
-                    <AssetMovementsHistoryList assetId={assetId} assetName={asset.product_name || undefined} />
+                <CardBody className="p-0 sm:p-0"> {/* Ajustar padding si AssetMovementsHistoryList lo maneja */}
+                    <AssetMovementsHistoryList assetId={assetIdFromParams} assetName={asset.product_name || undefined} />
                 </CardBody>
             </Card>
         </div>
