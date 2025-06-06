@@ -19,7 +19,7 @@ import {
 import { DateValue, parseDate, CalendarDate } from "@internationalized/date";
 import type { z } from "zod";
 import { EyeFilledIcon } from "@/components/inputs/icons/EyeSlashFilledIcon";
-import { EyeSlashFilledIcon } from "@/app/EyeSlashFilledlcon";
+import { EyeSlashFilledIcon } from "@/components/EyeSlashFilledlcon";
 import AvatarUpload from "@/app/dashboard/profile/components/avatarUpload";
 import { EditIcon } from "@/components/icons/EditIcon"; // Para el botón de cambiar imagen
 

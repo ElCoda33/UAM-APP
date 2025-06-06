@@ -6,8 +6,8 @@ import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input, Button, Card, CardHeader, CardBody, CardFooter, Link as NextUILink, Divider, CircularProgress } from "@heroui/react";
 import { toast } from "react-hot-toast";
-import { EyeSlashFilledIcon } from "../EyeSlashFilledlcon";
-import { EyeFilledIcon } from "../EyeFilledlcon";
+import { EyeFilledIcon } from "@/components/inputs/icons/EyeSlashFilledIcon";
+import { EyeSlashFilledIcon } from "@/components/EyeSlashFilledlcon";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
