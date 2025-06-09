@@ -23,6 +23,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { signOut, useSession } from "next-auth/react";
 import { siteConfig } from '@/config/site'; //
 import { ThemeSwitch } from '@/components/theme-switch';
+import NotificationBell from './NotificationBell';
 
 export default function AppNavbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -118,7 +119,7 @@ export default function AppNavbar() {
 
             <NavbarContent justify="end">
                 <ThemeSwitch />
-
+                {isAuthenticated && <NotificationBell />}
                 {isLoadingSession ? (
                     <Spinner size="sm" color="primary" aria-label="Cargando sesión" />
                 ) : isAuthenticated && session?.user ? (

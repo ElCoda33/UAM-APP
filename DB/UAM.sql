@@ -315,6 +315,47 @@ CREATE TABLE IF NOT EXISTS documents (
   INDEX idx_documents_category (document_category)
 );
 
+
+-- DB/UAM.sql (Añadir al final del archivo)
+
+-- -----------------------------------------------------
+-- Table `notifications`
+-- Almacena notificaciones para los usuarios
+-- -----------------------------------------------------
+CREATE TABLE notifications (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL, -- El usuario que recibe la notificación
+  type ENUM(
+    'LICENSE_EXPIRING_SOON', 
+    'LICENSE_EXPIRED', 
+    'ASSET_RETURN_DUE', 
+    'ASSET_RETURN_OVERDUE',
+    'NEW_ASSET_ASSIGNED',
+    'MAINTENANCE_REQUIRED',
+    'LOW_LICENSE_SEATS',
+    'USER_APPROVAL_PENDING', -- Para notificar a los Admins
+    'INFO'
+    ) NOT NULL,
+  message VARCHAR(512) NOT NULL,
+  link VARCHAR(255) NULL, -- URL para redirigir al usuario (e.j., /dashboard/licenses/123)
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  entity_type VARCHAR(50) NULL, -- ej: 'software_license', 'asset'
+  entity_id INT UNSIGNED NULL, -- ID de la entidad relacionada
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  CONSTRAINT fk_notifications_user
+    FOREIGN KEY (user_id)
+    REFERENCES users (id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+    
+  INDEX idx_notifications_user_is_read (user_id, is_read)
+);
+
+
+
+
+
 -- -----------------------------------------------------
 -- Table `roles`
 -- -----------------------------------------------------
@@ -479,3 +520,41 @@ VALUES (
 
 INSERT INTO users (email, password_hash, first_name, last_name, national_id, status, created_at, updated_at)
 VALUES ("nicolas.colman@fcea.edu.uy","$10$Vi3kBX7JFXPOPHl1V3p1qeJnHTVYLSXwtY5nBAq/v2CXs/Kx4C4R2","Nicolas","Colman","49108215","active",NOW(),NOW());
+
+
+
+-- Inserts de ejemplo para la tabla `notifications`
+-- Asegúrate de que los IDs (user_id, entity_id) coincidan con los de tu base de datos.
+
+USE UAM_App_DB;
+
+-- 1. Notificación para el manager (user_id=2) sobre una licencia que vence pronto.
+-- La licencia de Office 365 (id=1) vence el 2024-12-31.
+INSERT INTO notifications (user_id, type, message, link, is_read, entity_type, entity_id, created_at) VALUES 
+(2, 'LICENSE_EXPIRING_SOON', 'La suscripción de "Microsoft Office 365 E3" vencerá en menos de 30 días.', '/dashboard/softwareLicenses/1', false, 'software_license', 1, DATE_SUB(NOW(), INTERVAL 1 DAY));
+
+-- 2. Notificación para el técnico (user_id=3) sobre una licencia ya vencida.
+-- Asumimos que la licencia de VMware (id=4) venció el '2024-03-31' para este ejemplo.
+INSERT INTO notifications (user_id, type, message, link, is_read, entity_type, entity_id, created_at) VALUES 
+(3, 'LICENSE_EXPIRED', 'La licencia de "VMware vSphere Standard" ha expirado.', '/dashboard/softwareLicenses/4', false, 'software_license', 4, DATE_SUB(NOW(), INTERVAL 2 DAY));
+
+-- 3. Notificación para un usuario (dev01, user_id=6) sobre un activo que le fue asignado.
+INSERT INTO notifications (user_id, type, message, link, is_read, entity_type, entity_id, created_at) VALUES
+(6, 'NEW_ASSET_ASSIGNED', 'Se te ha asignado el activo: "Workstation Custom Ryzen 9".', '/dashboard/assets/3', false, 'asset', 3, DATE_SUB(NOW(), INTERVAL 5 HOUR));
+
+-- 4. Notificación para el manager (user_id=2) sobre un préstamo de activo vencido.
+-- La impresora (asset_id=4) tenía fecha de devolución '2024-02-15'.
+INSERT INTO notifications (user_id, type, message, link, is_read, entity_type, entity_id, created_at) VALUES
+(2, 'ASSET_RETURN_OVERDUE', 'El préstamo de la impresora "HP LaserJet Pro M404dn" al usuario Pedro Rodriguez está vencido.', '/dashboard/assets/4', false, 'asset', 4, DATE_SUB(NOW(), INTERVAL 3 DAY));
+
+-- 5. Notificación para el responsable de la licencia de Photoshop (user_id=2) sobre pocos puestos disponibles.
+INSERT INTO notifications (user_id, type, message, link, is_read, entity_type, entity_id, created_at) VALUES
+(2, 'LOW_LICENSE_SEATS', 'Quedan pocos puestos disponibles para la licencia "Adobe Photoshop CC 2024".', '/dashboard/softwareLicenses/2', true, 'software_license', 2, DATE_SUB(NOW(), INTERVAL 5 DAY));
+
+-- 6. Notificación de Mantenimiento para un técnico (user_id=3) sobre un activo.
+INSERT INTO notifications (user_id, type, message, link, is_read, entity_type, entity_id, created_at) VALUES
+(3, 'MAINTENANCE_REQUIRED', 'El servidor "HPE ProLiant DL380 Gen10" requiere mantenimiento preventivo.', '/dashboard/assets/2', true, 'asset', 2, DATE_SUB(NOW(), INTERVAL 10 DAY));
+
+-- 7. Notificación informativa general para un admin (user_id=1).
+INSERT INTO notifications (user_id, type, message, link, is_read, entity_type, entity_id, created_at) VALUES
+(1, 'INFO', 'El sistema de reportes en PDF ha sido actualizado a la versión 1.1.', NULL, true, NULL, NULL, DATE_SUB(NOW(), INTERVAL 15 DAY));
