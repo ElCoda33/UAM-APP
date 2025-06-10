@@ -20,7 +20,7 @@ export default function LoginPage() {
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard/users";
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
 
   // 1. Efecto para redirigir si el usuario ya está autenticado
   useEffect(() => {
