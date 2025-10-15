@@ -8,40 +8,31 @@ USE UAM_App_DB;
 -- -----------------------------------------------------
 CREATE TABLE sections (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(100) NOT NULL, -- Se eliminará UNIQUE temporalmente para manejar soft-delete, se gestionará en la app o con constraint condicional
+  name VARCHAR(100) NOT NULL, 
   management_level INT,
-  email VARCHAR(100) NULL, -- Se eliminará UNIQUE temporalmente
+  email VARCHAR(100) NULL,
   parent_section_id INT UNSIGNED NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  deleted_at TIMESTAMP NULL DEFAULT NULL, -- Para eliminación lógica
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
   CONSTRAINT fk_sections_parent_section
     FOREIGN KEY (parent_section_id)
     REFERENCES sections (id)
     ON DELETE SET NULL
     ON UPDATE CASCADE,
   INDEX idx_sections_deleted_at (deleted_at),
-  INDEX idx_sections_name (name) -- Mantener índice en name
-  -- UNIQUE(name, deleted_at) -- Opción si tu DB lo soporta bien para NULLs o usa un valor placeholder para deleted_at en registros activos
+  INDEX idx_sections_name (name)
 );
--- Nota sobre UNIQUE para 'sections.name' y 'sections.email':
--- Con soft delete, un constraint UNIQUE simple en 'name' o 'email' impediría crear un nuevo registro
--- con el mismo nombre/email que uno "eliminado lógicamente". Hay varias estrategias:
--- 1. Eliminar el constraint UNIQUE y manejar la unicidad en la lógica de la aplicación (solo para activos).
--- 2. Usar un constraint UNIQUE compuesto (ej. UNIQUE(name, deleted_at_placeholder_value)) si tu DB lo permite.
--- 3. Al hacer soft-delete, modificar el valor del campo único (ej. name + '_deleted_' + timestamp).
--- Por simplicidad para este ejemplo, he quitado UNIQUE de 'name' y 'email' en 'sections', asumiendo que
--- la lógica de la aplicación (al crear/actualizar) verificará la unicidad entre los registros activos (deleted_at IS NULL).
 
 -- -----------------------------------------------------
 -- Table `roles`
 -- -----------------------------------------------------
 CREATE TABLE roles (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(50) NOT NULL, -- UNIQUE quitado temporalmente, manejar en app para activos
+  name VARCHAR(50) NOT NULL,
   description VARCHAR(255),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Añadido para consistencia
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- Añadido
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted_at TIMESTAMP NULL DEFAULT NULL,
   INDEX idx_roles_deleted_at (deleted_at),
   INDEX idx_roles_name (name)
@@ -52,19 +43,20 @@ CREATE TABLE roles (
 -- -----------------------------------------------------
 CREATE TABLE users (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  email VARCHAR(255) NOT NULL, -- UNIQUE quitado temporalmente
-  password_hash VARCHAR(255) NULL,
+  email VARCHAR(255) NOT NULL,
+  password_hash VARCHAR(255) NULL, -- Será NULL para usuarios que no pueden loggearse
+  can_login BOOLEAN NOT NULL DEFAULT TRUE, -- MODIFICACIÓN: Controla explícitamente si el usuario puede iniciar sesión.
   first_name VARCHAR(100) NULL,
   last_name VARCHAR(100) NULL,
   avatar_url VARCHAR(255) NULL,
   email_verified_at DATETIME NULL,
-  national_id VARCHAR(50) NULL, -- UNIQUE quitado temporalmente
-  section_id INT UNSIGNED NULL, -- CAMBIADO A NULLABLE, ya que sections.id puede ser SET NULL
+  national_id VARCHAR(50) NULL,
+  section_id INT UNSIGNED NULL,
   status ENUM('active', 'disabled', 'on_vacation', 'pending_approval') DEFAULT 'active',
   birth_date DATE NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  deleted_at TIMESTAMP NULL DEFAULT NULL, -- Para eliminación lógica
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
   CONSTRAINT fk_users_section
     FOREIGN KEY (section_id)
     REFERENCES sections (id)
@@ -76,7 +68,7 @@ CREATE TABLE users (
 );
 
 -- -----------------------------------------------------
--- Table `user_roles` (Sin cambios para soft-delete, depende de users y roles)
+-- Table `user_roles`
 -- -----------------------------------------------------
 CREATE TABLE user_roles (
   user_id INT UNSIGNED NOT NULL,
@@ -94,11 +86,11 @@ CREATE TABLE user_roles (
 -- -----------------------------------------------------
 CREATE TABLE companies (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  tax_id VARCHAR(50) NOT NULL, -- UNIQUE quitado temporalmente
+  tax_id VARCHAR(50) NOT NULL,
   phone_number VARCHAR(50) NULL,
   trade_name VARCHAR(100) NULL,
   legal_name VARCHAR(100) NOT NULL,
-  email VARCHAR(100) NULL, -- UNIQUE quitado temporalmente
+  email VARCHAR(100) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted_at TIMESTAMP NULL DEFAULT NULL,
@@ -111,7 +103,7 @@ CREATE TABLE companies (
 -- -----------------------------------------------------
 CREATE TABLE locations (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(100) NOT NULL, -- UNIQUE quitado temporalmente
+  name VARCHAR(100) NOT NULL,
   description VARCHAR(255) NULL,
   section_id INT UNSIGNED NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -131,8 +123,8 @@ CREATE TABLE locations (
 -- -----------------------------------------------------
 CREATE TABLE assets (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  serial_number VARCHAR(100) NULL, -- UNIQUE quitado temporalmente
-  inventory_code VARCHAR(200) NOT NULL, -- UNIQUE quitado temporalmente
+  serial_number VARCHAR(100) NULL,
+  inventory_code VARCHAR(200) NOT NULL,
   description TEXT NOT NULL,
   product_name VARCHAR(100) NOT NULL,
   warranty_expiry_date DATE NULL,
@@ -146,7 +138,7 @@ CREATE TABLE assets (
   image_url VARCHAR(255) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  deleted_at TIMESTAMP NULL DEFAULT NULL, -- Para eliminación lógica
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
   CONSTRAINT fk_assets_section FOREIGN KEY (current_section_id) REFERENCES sections (id) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT fk_assets_location FOREIGN KEY (current_location_id) REFERENCES locations (id) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT fk_assets_company FOREIGN KEY (supplier_company_id) REFERENCES companies (id) ON DELETE SET NULL ON UPDATE CASCADE,
@@ -168,14 +160,14 @@ CREATE TABLE asset_assignments (
   signature_image_url VARCHAR(255) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  deleted_at TIMESTAMP NULL DEFAULT NULL, -- Para eliminación lógica
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
   CONSTRAINT fk_asset_assignments_asset FOREIGN KEY (asset_id) REFERENCES assets (id) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_asset_assignments_user FOREIGN KEY (assigned_to_user_id) REFERENCES users (id) ON DELETE RESTRICT ON UPDATE CASCADE,
   INDEX idx_asset_assignments_deleted_at (deleted_at)
 );
 
 -- -----------------------------------------------------
--- Table `asset_transfers` (Sin soft-delete, es un log)
+-- Table `asset_transfers`
 -- -----------------------------------------------------
 CREATE TABLE asset_transfers (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -208,7 +200,6 @@ CREATE TABLE asset_transfers (
 
 CREATE TABLE software_licenses (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  -- asset_id INT UNSIGNED NULL, -- ESTA LÍNEA SE ELIMINA
   software_name VARCHAR(255) NOT NULL,
   software_version VARCHAR(100) NULL,
   license_key VARCHAR(255) NULL,
@@ -217,18 +208,17 @@ CREATE TABLE software_licenses (
     'subscription_user', 'subscription_device', 
     'concurrent', 'freeware', 'open_source', 'other'
   ) NOT NULL DEFAULT 'other',
-  seats INT UNSIGNED NOT NULL DEFAULT 1, -- Total de puestos que cubre esta licencia
+  seats INT UNSIGNED NOT NULL DEFAULT 1,
   purchase_date DATE NULL,
   purchase_cost DECIMAL(10,2) NULL,
   expiry_date DATE NULL,
   supplier_company_id INT UNSIGNED NULL,
   invoice_number VARCHAR(100) NULL,
-  assigned_to_user_id INT UNSIGNED NULL, -- Usuario responsable/propietario de la licencia general
+  assigned_to_user_id INT UNSIGNED NULL,
   notes TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted_at TIMESTAMP NULL DEFAULT NULL,
-
   CONSTRAINT fk_sl_supplier_company_revised
     FOREIGN KEY (supplier_company_id)
     REFERENCES companies (id)
@@ -239,7 +229,6 @@ CREATE TABLE software_licenses (
     REFERENCES users (id)
     ON DELETE SET NULL
     ON UPDATE CASCADE,
-  
   INDEX idx_sl_software_name (software_name),
   INDEX idx_sl_license_key (license_key),
   INDEX idx_sl_expiry_date (expiry_date),
@@ -249,36 +238,27 @@ CREATE TABLE software_licenses (
 );
 
 -- -----------------------------------------------------
--- Table `asset_software_license_assignments` (Nueva Tabla de Unión)
--- Representa la asignación de una licencia de software a un activo específico.
+-- Table `asset_software_license_assignments`
 -- -----------------------------------------------------
 CREATE TABLE asset_software_license_assignments (
-  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, -- Clave primaria simple para la asignación
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   asset_id INT UNSIGNED NOT NULL,
   software_license_id INT UNSIGNED NOT NULL,
-  -- assigned_to_specific_user_id INT UNSIGNED NULL, -- Opcional: si quieres rastrear qué usuario usa ESTA instancia en ESTE activo
-  installation_date DATE NULL, -- Fecha en que esta licencia se instaló/asignó a este activo
-  notes TEXT NULL, -- Notas específicas para esta asignación activo-licencia
+  installation_date DATE NULL,
+  notes TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  -- No es común el soft-delete en tablas de unión puras, se eliminan los registros.
-  -- Pero si quieres rastrear el historial de asignaciones pasadas, no la borres o añade un `unassigned_date`.
-
-  CONSTRAINT uq_asset_license_assignment UNIQUE (asset_id, software_license_id), -- Un activo solo puede tener una licencia específica asignada una vez
-
+  CONSTRAINT uq_asset_license_assignment UNIQUE (asset_id, software_license_id),
   CONSTRAINT fk_asla_asset
     FOREIGN KEY (asset_id)
     REFERENCES assets (id)
-    ON DELETE CASCADE -- Si se elimina el activo, se elimina la asignación de la licencia
+    ON DELETE CASCADE
     ON UPDATE CASCADE,
   CONSTRAINT fk_asla_software_license
     FOREIGN KEY (software_license_id)
     REFERENCES software_licenses (id)
-    ON DELETE CASCADE -- Si se elimina la licencia, se elimina la asignación
+    ON DELETE CASCADE
     ON UPDATE CASCADE,
-  -- CONSTRAINT fk_asla_specific_user -- Si añades assigned_to_specific_user_id
-  --   FOREIGN KEY (assigned_to_specific_user_id) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,
-  
   INDEX idx_asla_asset_id (asset_id),
   INDEX idx_asla_software_license_id (software_license_id)
 );
@@ -287,44 +267,35 @@ CREATE TABLE asset_software_license_assignments (
 CREATE TABLE IF NOT EXISTS documents (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   original_filename VARCHAR(255) NOT NULL,
-  stored_filename VARCHAR(255) NOT NULL UNIQUE, -- Nombre único en el almacenamiento (e.g., UUID + ext)
+  stored_filename VARCHAR(255) NOT NULL UNIQUE,
   mime_type VARCHAR(100) NOT NULL,
   file_size_bytes INT UNSIGNED NOT NULL,
-  storage_path VARCHAR(255) NOT NULL, -- Ruta relativa DENTRO de 'private_uploads' (e.g., 'invoices', 'manuals')
-  
-  -- Para vincular el documento a otras entidades
-  entity_type VARCHAR(50) NULL, -- Ej: 'asset', 'software_license', 'purchase_order', 'company'
-  entity_id INT UNSIGNED NULL,  -- ID de la entidad a la que se asocia
-  
-  document_category VARCHAR(50) NULL, -- Ej: 'invoice_purchase', 'warranty_certificate', 'user_manual', 'contract'
-  description TEXT NULL,          -- Descripción opcional del documento
-  
+  storage_path VARCHAR(255) NOT NULL,
+  entity_type VARCHAR(50) NULL,
+  entity_id INT UNSIGNED NULL,
+  document_category VARCHAR(50) NULL,
+  description TEXT NULL,
   uploaded_by_user_id INT UNSIGNED NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  deleted_at TIMESTAMP NULL DEFAULT NULL, 
-
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
   CONSTRAINT fk_documents_uploaded_by_user
     FOREIGN KEY (uploaded_by_user_id)
     REFERENCES users (id)
     ON DELETE SET NULL
     ON UPDATE CASCADE,
-  
   INDEX idx_documents_entity (entity_type, entity_id),
   INDEX idx_documents_deleted_at (deleted_at),
   INDEX idx_documents_category (document_category)
 );
 
 
--- DB/UAM.sql (Añadir al final del archivo)
-
 -- -----------------------------------------------------
 -- Table `notifications`
--- Almacena notificaciones para los usuarios
 -- -----------------------------------------------------
 CREATE TABLE notifications (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  user_id INT UNSIGNED NOT NULL, -- El usuario que recibe la notificación
+  user_id INT UNSIGNED NOT NULL,
   type ENUM(
     'LICENSE_EXPIRING_SOON', 
     'LICENSE_EXPIRED', 
@@ -333,25 +304,22 @@ CREATE TABLE notifications (
     'NEW_ASSET_ASSIGNED',
     'MAINTENANCE_REQUIRED',
     'LOW_LICENSE_SEATS',
-    'USER_APPROVAL_PENDING', -- Para notificar a los Admins
+    'USER_APPROVAL_PENDING',
     'INFO'
     ) NOT NULL,
   message VARCHAR(512) NOT NULL,
-  link VARCHAR(255) NULL, -- URL para redirigir al usuario (e.j., /dashboard/licenses/123)
+  link VARCHAR(255) NULL,
   is_read BOOLEAN NOT NULL DEFAULT FALSE,
-  entity_type VARCHAR(50) NULL, -- ej: 'software_license', 'asset'
-  entity_id INT UNSIGNED NULL, -- ID de la entidad relacionada
+  entity_type VARCHAR(50) NULL,
+  entity_id INT UNSIGNED NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
   CONSTRAINT fk_notifications_user
     FOREIGN KEY (user_id)
     REFERENCES users (id)
     ON DELETE CASCADE
     ON UPDATE CASCADE,
-    
   INDEX idx_notifications_user_is_read (user_id, is_read)
 );
-
 
 
 

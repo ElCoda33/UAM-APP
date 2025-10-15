@@ -8,7 +8,9 @@ import {
     Card,
     CardHeader,
     CardBody,
-    Divider
+    Checkbox,
+    Divider,
+    Switch
 } from "@heroui/react";
 import { toast } from "react-hot-toast";
 import {
@@ -89,6 +91,7 @@ export default function UserForm({
     const [sections, setSections] = useState<SectionOption[]>([]);
     const [roles, setRoles] = useState<RoleOption[]>([]);
     const [isLoadingDropdowns, setIsLoadingDropdowns] = useState(true);
+    const [isLogable, setIsLogable] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<keyof UserFormData, string>>>({});
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -99,7 +102,9 @@ export default function UserForm({
     const [avatarPreviewCreate, setAvatarPreviewCreate] = useState<string | null>(initialData?.avatar_url || null);
     const [isUploadingAvatarCreate, setIsUploadingAvatarCreate] = useState(false);
     const [uploadProgressCreate, setUploadProgressCreate] = useState(0);
+    const [isLoginEnabled, setIsLoginEnabled] = useState(isEditMode ? false : true);
     const avatarCreateFileInputRef = useRef<HTMLInputElement>(null);
+
     // --- Fin estados para subida de avatar en modo CREACIÓN ---
 
     useEffect(() => {
@@ -118,6 +123,25 @@ export default function UserForm({
             }
         }
     }, [initialData, isEditMode]);
+
+    useEffect(() => {
+        // Si el usuario cambia a "no logeable"...
+        if (!isLogable) {
+            // 1. Vaciamos los campos de contraseña en el estado del formulario.
+            setFormData(prev => ({
+                ...prev,
+                password: "",
+                confirmPassword: ""
+            }));
+            // 2. Limpiamos cualquier error de validación que pudiera existir en esos campos.
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors.password;
+                delete newErrors.confirmPassword;
+                return newErrors;
+            });
+        }
+    }, [isLogable]); // Esta línea hace que el efecto se ejecute cada vez que 'isLogable' cambia.
 
     useEffect(() => {
         const fetchDropdownData = async () => { /* ... (sin cambios) ... */
@@ -275,10 +299,11 @@ export default function UserForm({
             role_ids: Array.from(formData.role_ids_set).map(idStr => Number(idStr)),
             avatar_url: formData.avatar_url || null, // Asegurar que se envía la URL del avatar
         };
+
         delete dataForZod.birth_date_value;
         delete dataForZod.role_ids_set;
 
-        if (!isEditMode) { // Solo incluir password y confirmPassword para Zod en modo creación
+        if (!isEditMode && isLoginEnabled) { // Solo incluir password y confirmPassword para Zod en modo creación
             dataForZod.password = formData.password;
             dataForZod.confirmPassword = formData.confirmPassword;
         } else { // No enviar campos de contraseña en modo edición desde este formulario
@@ -443,41 +468,33 @@ export default function UserForm({
             <Input name="email" type="email" label="Email" value={formData.email} onChange={handleChange} variant="bordered" isRequired isDisabled={isSubmitting} isInvalid={!!errors.email} errorMessage={errors.email} />
 
             {!isEditMode && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                        name="password"
-                        type={isPasswordVisible ? "text" : "password"}
-                        label="Contraseña"
-                        value={formData.password || ""}
-                        onChange={handleChange}
-                        variant="bordered"
-                        isRequired={!isEditMode}
-                        isDisabled={isSubmitting}
-                        isInvalid={!!errors.password}
-                        errorMessage={errors.password}
-                        endContent={
-                            <button className="focus:outline-none" type="button" onClick={() => setIsPasswordVisible(!isPasswordVisible)}>
-                                {isPasswordVisible ? <EyeSlashFilledIcon className="text-2xl text-default-400" /> : <EyeFilledIcon className="text-2xl text-default-400" />}
-                            </button>
-                        }
-                    />
-                    <Input
-                        name="confirmPassword"
-                        type={isConfirmPasswordVisible ? "text" : "password"}
-                        label="Confirmar Contraseña"
-                        value={formData.confirmPassword || ""}
-                        onChange={handleChange}
-                        variant="bordered"
-                        isRequired={!isEditMode}
-                        isDisabled={isSubmitting}
-                        isInvalid={!!errors.confirmPassword}
-                        errorMessage={errors.confirmPassword}
-                        endContent={
-                            <button className="focus:outline-none" type="button" onClick={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}>
-                                {isConfirmPasswordVisible ? <EyeSlashFilledIcon className="text-2xl text-default-400" /> : <EyeFilledIcon className="text-2xl text-default-400" />}
-                            </button>
-                        }
-                    />
+                <div className="space-y-4 p-4 border border-dashed border-default-200 rounded-md">
+                    <Switch
+                        isSelected={isLoginEnabled}
+                        onValueChange={setIsLoginEnabled}
+                        color="primary"
+                    >
+                        Habilitar inicio de sesión (requiere contraseña)
+                    </Switch>
+
+                    {isLoginEnabled && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                            <Input
+                                name="password"
+                                type={isPasswordVisible ? "text" : "password"}
+                                label="Contraseña"
+                                // ... (resto de las props del input de contraseña)
+                                isRequired={isLoginEnabled} // Requerido solo si el switch está activo
+                            />
+                            <Input
+                                name="confirmPassword"
+                                type={isConfirmPasswordVisible ? "text" : "password"}
+                                label="Confirmar Contraseña"
+                                // ... (resto de las props del input de confirmación)
+                                isRequired={isLoginEnabled} // Requerido solo si el switch está activo
+                            />
+                        </div>
+                    )}
                 </div>
             )}
 

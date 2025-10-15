@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
 
     const userInsertQuery = `
       INSERT INTO users (

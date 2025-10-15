@@ -210,22 +210,29 @@ export interface IAssetAPI extends RowDataPacket {
 
 
 
-
 export const createUserSchema = z.object({
     first_name: z.string().max(100, "Máximo 100 caracteres.").optional().nullable(),
     last_name: z.string().max(100, "Máximo 100 caracteres.").optional().nullable(),
     email: z.string().min(1, "El email es requerido.").email("Email inválido.").max(255, "Máximo 255 caracteres."),
-    password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres.").max(100, "Contraseña demasiado larga."),
-    confirmPassword: z.string().min(1, "Confirmar contraseña es requerido."),
+    // Campos de contraseña ahora opcionales
+    password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres.").max(100, "Contraseña demasiado larga.").optional(),
+    confirmPassword: z.string().min(1, "Confirmar contraseña es requerido.").optional(),
     national_id: z.string().max(50, "Máximo 50 caracteres.").optional().nullable(),
-    status: userStatusEnum.default('active'), // El enum ya existe
-    birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").nullable().optional(), // Asegurar que el DatePicker envíe este formato
+    status: userStatusEnum.default('active'),
+    birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").nullable().optional(),
     section_id: z.coerce.number().int().positive("ID de sección inválido.").nullable().optional(),
-    role_ids: z.array(z.coerce.number().int().positive()).optional().default([]), // Array de IDs de roles
+    role_ids: z.array(z.coerce.number().int().positive()).optional().default([]),
     avatar_url: z.string().url("Debe ser una URL válida.").max(255).nullable().optional(),
-}).refine(data => data.password === data.confirmPassword, {
+}).refine(data => {
+    // Si se provee una contraseña, la confirmación es requerida y deben coincidir.
+    if (data.password) {
+        return data.password === data.confirmPassword;
+    }
+    // Si no se provee contraseña, no hay nada que validar aquí.
+    return true;
+}, {
     message: "Las contraseñas no coinciden.",
-    path: ["confirmPassword"],
+    path: ["confirmPassword"], // El error se asocia al campo de confirmación
 });
 
 // Nuevo: Schema para actualizar un usuario (por un administrador)

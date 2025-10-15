@@ -1,7 +1,7 @@
 // generate-hash.js
 const bcrypt = require('bcrypt');
 
-const plainPassword = 'Elkoda33'; // La contraseña que quieres hashear
+const plainPassword = 'sdfadf'; // La contraseña que quieres hashear
 const saltRounds = 10; // El "cost factor" para bcrypt, 10-12 es común
 
 bcrypt.hash(plainPassword, saltRounds, function(err, hash) {
