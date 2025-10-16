@@ -100,7 +100,7 @@ export const assetStatusEnum = z.enum(['in_use', 'in_storage', 'under_repair', '
 export const updateAssetSchema = z.object({
     product_name: z.string().min(1, "El nombre del producto es requerido.").max(100, "Máximo 100 caracteres."),
     serial_number: z.string().max(100, "Máximo 100 caracteres.").nullable().optional(),
-    inventory_code: z.string().min(1, "El código de inventario es requerido.").max(200, "Máximo 200 caracteres."),
+    inventory_code: z.string().max(200, "Máximo 200 caracteres.").optional(),
     description: z.string().max(1000, "Máximo 1000 caracteres.").nullable().optional(),
     current_section_id: z.number({ required_error: "La sección es requerida." }).int().positive(),
     current_location_id: z.number().int().positive().nullable().optional(),

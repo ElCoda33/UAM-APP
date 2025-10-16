@@ -289,7 +289,7 @@ export default function EditAssetPage() {
             <Input name="product_name" label="Nombre del Producto/Activo" value={formData.product_name || ""} onChange={handleChange} variant="bordered" isRequired isDisabled={isSaving} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input name="serial_number" label="Número de Serie" value={formData.serial_number || ""} onChange={handleChange} variant="bordered" isDisabled={isSaving} />
-              <Input name="inventory_code" label="Código de Inventario" value={formData.inventory_code || ""} onChange={handleChange} variant="bordered" isRequired isDisabled={isSaving} />
+              <Input name="inventory_code" label="Código de Inventario" value={formData.inventory_code || ""} onChange={handleChange} variant="bordered" isDisabled={isSaving} />
             </div>
             <Textarea name="description" label="Descripción" value={formData.description || ""} onChange={handleChange} variant="bordered" minRows={3} isDisabled={isSaving} />
 

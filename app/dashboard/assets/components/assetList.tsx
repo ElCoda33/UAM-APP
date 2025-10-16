@@ -58,7 +58,7 @@ const dateValueToYYYYMMDD = (dateValue: DateValue | null): string | null => {
 };
 
 const INITIAL_DEFAULT_VISIBLE_COLUMNS = [
-    'product_name', 'serial_number', 'inventory_code', 'current_section_name', 'status', 'actions',
+    'product_name', 'serial_number', 'current_section_name',"description", 'status', 'actions',
 ];
 
 export default function AssetList() {
