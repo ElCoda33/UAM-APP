@@ -110,18 +110,19 @@ export async function POST(request: NextRequest) {
       const validatedData = validation.data;
 
       // Verificar unicidad de inventory_code (para activos no eliminados lógicamente)
-      const [existingInventory] = await connection.query<IAssetAPI[]>(
-        "SELECT id FROM assets WHERE inventory_code = ? AND deleted_at IS NULL",
-        [validatedData.inventory_code]
-      );
-      if (existingInventory.length > 0) {
-        await connection.rollback();
-        return NextResponse.json({
-          message: `El código de inventario '${validatedData.inventory_code}' ya existe para un activo activo.`,
-          field: 'inventory_code'
-        }, { status: 409 });
+      if (validatedData.inventory_code && validatedData.inventory_code.trim() !== "") {
+        const [existingInventory] = await connection.query<IAssetAPI[]>(
+          "SELECT id FROM assets WHERE inventory_code = ? AND deleted_at IS NULL",
+          [validatedData.inventory_code]
+        );
+        if (existingInventory.length > 0) {
+          await connection.rollback();
+          return NextResponse.json({
+            message: `El código de inventario '${validatedData.inventory_code}' ya existe para un activo activo.`,
+            field: 'inventory_code'
+          }, { status: 409 });
+        }
       }
-
       // Verificar unicidad de serial_number (si se provee y para activos no eliminados)
       if (validatedData.serial_number) {
         const [existingSerial] = await connection.query<IAssetAPI[]>(

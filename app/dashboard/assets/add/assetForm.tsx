@@ -237,7 +237,7 @@ export default function AssetForm({
 
             {isFieldVisible('serial_number') && <Input name="serial_number" label="Número de Serie (Opcional)" value={formData.serial_number || ""} onChange={handleChange} variant="bordered" isDisabled={isSubmittingGlobal} isInvalid={!!formErrors.serial_number} errorMessage={formErrors.serial_number} />}
 
-            {isFieldVisible('inventory_code') && <Input name="inventory_code" label="Código de Inventario" value={formData.inventory_code} onChange={handleChange} variant="bordered" isRequired isDisabled={isSubmittingGlobal} isInvalid={!!formErrors.inventory_code} errorMessage={formErrors.inventory_code} />}
+            {isFieldVisible('inventory_code') && <Input name="inventory_code" label="Código de Inventario (Opcional)" value={formData.inventory_code} onChange={handleChange} variant="bordered" isDisabled={isSubmittingGlobal} isInvalid={!!formErrors.inventory_code} errorMessage={formErrors.inventory_code} />}
 
             {isFieldVisible('description') && <Textarea name="description" label="Descripción (Opcional)" value={formData.description || ""} onChange={handleChange} variant="bordered" minRows={3} isDisabled={isSubmittingGlobal} isInvalid={!!formErrors.description} errorMessage={formErrors.description} />}
 

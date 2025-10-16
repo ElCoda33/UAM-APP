@@ -124,8 +124,8 @@ CREATE TABLE locations (
 CREATE TABLE assets (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   serial_number VARCHAR(100) NULL,
-  inventory_code VARCHAR(200) NOT NULL,
-  description TEXT NOT NULL,
+  inventory_code VARCHAR(200) NULL,
+  description TEXT NULL,
   product_name VARCHAR(100) NOT NULL,
   warranty_expiry_date DATE NULL,
   current_section_id INT UNSIGNED NULL,

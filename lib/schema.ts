@@ -154,7 +154,7 @@ export const updateLocationSchema = locationSchema.partial(); // Renombrado de u
 export const createAssetSchema = z.object({
     product_name: z.string().min(1, "El nombre del producto es requerido.").max(100, "Máximo 100 caracteres."),
     serial_number: z.string().max(100, "Máximo 100 caracteres.").nullable().optional(),
-    inventory_code: z.string().min(1, "El código de inventario es requerido.").max(200, "Máximo 200 caracteres."),
+    inventory_code: z.string().max(200, "Máximo 200 caracteres.").optional(),
     description: z.string().max(65535, "Descripción demasiado larga.").nullable().optional(), // TEXT en SQL
     current_section_id: z.coerce.number({ required_error: "La sección es requerida." }).int().positive(),
     current_location_id: z.coerce.number().int().positive().nullable().optional(),
