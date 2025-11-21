@@ -1,8 +1,7 @@
 // app/dashboard/assets/components/MovementForm.tsx
 "use client";
 
-import React, { useEffect, useState, FormEvent, useContext } // Quita useContext si ya no es necesario
-  from "react";
+import React, { useEffect, useState, FormEvent, Key } from "react";
 import {
   Input,
   Button,
@@ -15,8 +14,7 @@ import {
   Spinner
 } from "@heroui/react";
 import { toast } from "react-hot-toast";
-// import { UserContext } from "@/app/providers"; // <--- Ya no usaremos UserContext aquí
-import { useSession } from "next-auth/react"; // <--- IMPORTA useSession
+import { useSession } from "next-auth/react";
 import { DateValue, CalendarDateTime, now, getLocalTimeZone } from "@internationalized/date";
 
 interface AssetMinDetails {
@@ -34,6 +32,12 @@ interface Location {
   name: string;
 }
 
+// Interfaz para el buscador de usuarios
+interface UserOption {
+  id: number;
+  name: string;
+}
+
 interface MovementFormProps {
   asset: AssetMinDetails;
   onMoveSuccess: () => void;
@@ -43,14 +47,15 @@ interface MovementFormProps {
 const tipoDeUbicaciones = ['Interna', 'Externa', 'Dar de baja'];
 
 export default function MovementForm({ asset, onMoveSuccess, onCancel }: MovementFormProps) {
-  // const UserLogin = useContext<any>(UserContext); // <--- Ya no se usa
-  const { data: session, status: sessionStatus } = useSession(); // <--- USA useSession
+  const { data: session, status: sessionStatus } = useSession();
 
   const [targetSectionName, setTargetSectionName] = useState<string | null>(null);
   const [targetLocationName, setTargetLocationName] = useState<string | null>(null);
-  const [receivingPersonCI, setReceivingPersonCI] = useState("");
-  const [movementType, setMovementType] = useState<string>(tipoDeUbicaciones[0]);
 
+  // Nuevo estado: ID del usuario seleccionado en el buscador
+  const [selectedReceiverId, setSelectedReceiverId] = useState<Key | null>(null);
+
+  const [movementType, setMovementType] = useState<string>(tipoDeUbicaciones[0]);
   const currentDateTime = now(getLocalTimeZone());
   const [movementDate, setMovementDate] = useState<DateValue>(currentDateTime);
   const [receivedDate, setReceivedDate] = useState<DateValue>(currentDateTime);
@@ -58,94 +63,107 @@ export default function MovementForm({ asset, onMoveSuccess, onCancel }: Movemen
 
   const [allSections, setAllSections] = useState<Section[]>([]);
   const [availableLocations, setAvailableLocations] = useState<Location[]>([]);
+  const [allUsers, setAllUsers] = useState<UserOption[]>([]); // Lista de usuarios para el buscador
 
   const [isLoadingSections, setIsLoadingSections] = useState(false);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Cargar datos iniciales (Secciones y Usuarios)
   useEffect(() => {
-    const fetchInitialSections = async () => {
+    const fetchInitialData = async () => {
       setIsLoadingSections(true);
+      setIsLoadingUsers(true);
       try {
-        const res = await fetch("/api/sections");
-        if (!res.ok) throw new Error("Error al cargar secciones desde API");
-        const data = await res.json();
-        setAllSections(data || []);
-      } catch (error) {
-        toast.error("No se pudieron cargar las secciones.");
-        console.error(error);
+        const [sectionsRes, usersRes] = await Promise.all([
+          fetch("/api/sections"),
+          fetch("/api/users")
+        ]);
+
+        if (sectionsRes.ok) {
+          const sectionsData = await sectionsRes.json();
+          setAllSections(sectionsData.filter((s: any) => s.deleted_at === null) || []);
+        }
+
+        if (usersRes.ok) {
+          const usersData = await usersRes.json();
+          // Formatear usuarios para el buscador: Nombre Apellido (Email)
+          setAllUsers(usersData.map((u: any) => ({
+            id: u.id,
+            name: `${u.first_name || ''} ${u.last_name || ''} (${u.email})`.trim()
+          })));
+        }
+      } catch (error: any) {
+        console.error("Error cargando datos:", error);
+        toast.error("Error cargando listas desplegables.");
       } finally {
         setIsLoadingSections(false);
+        setIsLoadingUsers(false);
       }
     };
-    fetchInitialSections();
+    fetchInitialData();
   }, []);
 
+  // Cargar ubicaciones al seleccionar sección
   useEffect(() => {
     if (targetSectionName) {
-      const fetchLocationsForSection = async () => {
+      const fetchLocations = async () => {
         setIsLoadingLocations(true);
         setAvailableLocations([]);
         setTargetLocationName(null);
         try {
-          const res = await fetch(`/api/locations?sectionName=${encodeURIComponent(targetSectionName)}`);
-          if (!res.ok) {
-            const errorData = await res.json().catch(() => ({}));
-            throw new Error(errorData.message || `Error al cargar lugares para ${targetSectionName}`);
+          // Buscar ID de la sección seleccionada
+          const sectionObj = allSections.find(s => s.name === targetSectionName);
+          const queryParam = sectionObj ? `sectionId=${sectionObj.id}` : `sectionName=${encodeURIComponent(targetSectionName)}`;
+
+          const res = await fetch(`/api/locations?${queryParam}`);
+          if (res.ok) {
+            const data = await res.json();
+            setAvailableLocations(data || []);
           }
-          const locationsData = await res.json();
-          setAvailableLocations(locationsData || []);
-        } catch (error: any) {
-          toast.error(error.message || `No se pudieron cargar lugares para la sección ${targetSectionName}.`);
+        } catch (error) {
           console.error(error);
         } finally {
           setIsLoadingLocations(false);
         }
       };
-      fetchLocationsForSection();
+      fetchLocations();
     } else {
       setAvailableLocations([]);
       setTargetLocationName(null);
     }
-  }, [targetSectionName]);
+  }, [targetSectionName, allSections]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
-    // Verifica que la sesión esté cargada y que el usuario exista
-    if (sessionStatus === "loading") {
-      toast.error("Esperando información de sesión, por favor inténtalo de nuevo en un momento.");
+    if (sessionStatus === "loading") return;
+
+    // Eliminada la validación de session.user.national_id que causaba el error.
+    // El backend ahora usa el ID de usuario de la sesión directamente.
+
+    if (!asset) {
+      toast.error("Error: Faltan datos del activo.");
       return;
     }
 
-    // Usa session.user para obtener los datos
-    // Tu session.user tiene national_id para el CI y section_name para la sección.
-    // types/next-auth.d.ts
-    if (!session?.user?.national_id || !session?.user?.section_name) {
-      toast.error("No se pudo obtener la información completa del usuario logueado (CI o sección).");
+    if (!targetSectionName || !targetLocationName || !selectedReceiverId || !movementType) {
+      toast.error("Por favor complete todos los campos obligatorios.");
       return;
     }
-    if (!asset) {
-      toast.error("Error: Faltan datos del activo a mover.");
-      return;
-    }
-    if (!targetSectionName || !targetLocationName || !receivingPersonCI || !movementType) {
-      toast.error("Por favor, complete todos los campos obligatorios del formulario.");
-      return;
-    }
+
     setIsSubmitting(true);
     const toastId = toast.loading("Procesando movimiento...");
 
     const payload = {
       lugar_destino_name: targetLocationName,
-      persona_recibe_ci: receivingPersonCI,
+      persona_recibe_id: Number(selectedReceiverId), // Enviamos el ID numérico
       tipo_ubicacion: movementType,
       dependencia_destino_name: targetSectionName,
-
-      ci_usuario_autoriza: session.user.national_id, // <-- De la sesión de NextAuth
-      seccion_transfiere_name: session.user.section_name, // <-- De la sesión de NextAuth
       fecha_movimiento_str: (movementDate as CalendarDateTime).toDate(getLocalTimeZone()).toISOString(),
       fecha_recibido_str: (receivedDate as CalendarDateTime).toDate(getLocalTimeZone()).toISOString(),
+      notes: notes
     };
 
     try {
@@ -154,99 +172,89 @@ export default function MovementForm({ asset, onMoveSuccess, onCancel }: Movemen
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || 'Error al procesar el movimiento del activo.');
+        throw new Error(result.message || 'Error al mover el activo.');
       }
-      toast.success(result.message || "Movimiento realizado correctamente.", { id: toastId });
+      toast.success("Movimiento realizado correctamente.", { id: toastId });
       onMoveSuccess();
     } catch (error: any) {
-      console.error("Error en handleSubmit MovementForm:", error);
-      toast.error(error.message || "No se pudo completar el movimiento.", { id: toastId });
+      console.error(error);
+      toast.error(error.message || "Error al procesar el movimiento.", { id: toastId });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (sessionStatus === "loading" && !session) { // Muestra un spinner mientras carga la sesión la primera vez
-    return <div className="flex justify-center items-center p-8"><Spinner label="Cargando información de usuario..." /></div>;
+  if (sessionStatus === "loading") {
+    return <div className="flex justify-center p-8"><Spinner label="Cargando..." /></div>;
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Autocomplete
         isRequired
-        label="Sección de Destino (Dependencia)"
-        placeholder="Seleccione la sección de destino"
+        label="Sección de Destino"
+        placeholder="Seleccione sección"
         items={allSections}
         selectedKey={targetSectionName}
         onSelectionChange={(key) => setTargetSectionName(key as string)}
         isLoading={isLoadingSections}
-        isDisabled={isSubmitting || isLoadingSections}
+        isDisabled={isSubmitting}
         variant="bordered"
-        aria-label="Sección de Destino"
-        name="dependencia_destino_name"
       >
-        {(section) => (
-          <AutocompleteItem key={section.name} textValue={section.name}>
-            {section.name}
-          </AutocompleteItem>
-        )}
+        {(section) => <AutocompleteItem key={section.name}>{section.name}</AutocompleteItem>}
       </Autocomplete>
 
       <Autocomplete
         isRequired
-        label="Destino Físico (Lugar)"
-        placeholder={!targetSectionName ? "Seleccione una sección primero" : "Seleccione el lugar de destino"}
+        label="Ubicación de Destino"
+        placeholder={!targetSectionName ? "Seleccione una sección primero" : "Seleccione ubicación"}
         items={availableLocations}
         selectedKey={targetLocationName}
         onSelectionChange={(key) => setTargetLocationName(key as string)}
         isLoading={isLoadingLocations}
-        isDisabled={isSubmitting || !targetSectionName || isLoadingLocations || availableLocations.length === 0}
+        isDisabled={isSubmitting || !targetSectionName || isLoadingLocations}
         variant="bordered"
-        aria-label="Destino Físico"
-        name="lugar_destino_name"
       >
-        {(location) => (
-          <AutocompleteItem key={location.name} textValue={location.name}>
-            {location.name}
-          </AutocompleteItem>
-        )}
+        {(location) => <AutocompleteItem key={location.name}>{location.name}</AutocompleteItem>}
       </Autocomplete>
 
-      <Input
+      {/* Buscador de Persona que Recibe (Nombre/Email) */}
+      <Autocomplete
         isRequired
-        name="receivingPersonCI"
-        label="CI Persona que Recibe"
-        value={receivingPersonCI}
-        onValueChange={setReceivingPersonCI}
-        placeholder="Ingrese Cédula de Identidad"
-        variant="bordered"
+        label="Persona que Recibe"
+        placeholder="Buscar por nombre o email..."
+        items={allUsers}
+        selectedKey={selectedReceiverId}
+        onSelectionChange={setSelectedReceiverId}
+        isLoading={isLoadingUsers}
         isDisabled={isSubmitting}
-      />
+        variant="bordered"
+        allowsCustomValue={false}
+      >
+        {(user) => <AutocompleteItem key={user.id} textValue={user.name}>{user.name}</AutocompleteItem>}
+      </Autocomplete>
 
       <Select
         isRequired
         label="Tipo de Movimiento"
-        name="movementType"
         selectedKeys={movementType ? [movementType] : []}
         onSelectionChange={(keys) => setMovementType(Array.from(keys as Set<string>)[0])}
-        placeholder="Seleccione el tipo"
         variant="bordered"
         isDisabled={isSubmitting}
       >
         {tipoDeUbicaciones.map((tipo) => (
-          <SelectItem key={tipo} value={tipo}>
-            {tipo}
-          </SelectItem>
+          <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
         ))}
       </Select>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <DatePicker
           isRequired
-          label="Fecha y Hora del Movimiento"
+          label="Fecha Movimiento"
           value={movementDate}
           onChange={setMovementDate as (date: DateValue) => void}
           granularity="minute"
@@ -256,7 +264,7 @@ export default function MovementForm({ asset, onMoveSuccess, onCancel }: Movemen
         />
         <DatePicker
           isRequired
-          label="Fecha y Hora de Recepción"
+          label="Fecha Recepción"
           value={receivedDate}
           onChange={setReceivedDate as (date: DateValue) => void}
           granularity="minute"
@@ -267,11 +275,9 @@ export default function MovementForm({ asset, onMoveSuccess, onCancel }: Movemen
       </div>
 
       <Textarea
-        name="notes"
-        label="Notas Adicionales (Opcional)"
+        label="Notas (Opcional)"
         value={notes}
         onValueChange={setNotes}
-        placeholder="Ingrese cualquier observación relevante para el movimiento"
         variant="bordered"
         minRows={2}
         isDisabled={isSubmitting}
@@ -281,8 +287,8 @@ export default function MovementForm({ asset, onMoveSuccess, onCancel }: Movemen
         <Button variant="flat" onPress={onCancel} isDisabled={isSubmitting}>
           Cancelar
         </Button>
-        <Button type="submit" color="primary" isLoading={isSubmitting} isDisabled={isSubmitting}>
-          {isSubmitting ? <Spinner size="sm" color="current" /> : "Confirmar Movimiento"}
+        <Button type="submit" color="primary" isLoading={isSubmitting}>
+          Confirmar
         </Button>
       </div>
     </form>
