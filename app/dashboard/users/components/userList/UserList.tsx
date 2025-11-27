@@ -16,7 +16,7 @@ import { EyeIcon } from "@/components/icons/EyeIcon";
 import type { UserDetailsFromDB } from "@/lib/data/users";
 import { USER_COLUMNS_DEFINITION, INITIAL_VISIBLE_USER_COLUMNS, statusColorMap, userStatusOptionsForFilter } from "./data";
 import { formatDate, formatUserRoles, formatUserStatus } from "./utils";
-import GenericTable from "../../../components/GenericTable";
+import GenericTable, { BulkAction } from "../../../components/GenericTable";
 
 export default function UserList() {
     const router = useRouter();
@@ -63,6 +63,31 @@ export default function UserList() {
             fetchUsers();
         } catch (err: any) {
             toast.error(err.message || "No se pudo eliminar el usuario.", { id: toastId });
+        }
+    };
+
+    const handleBulkDelete = async (selectedKeys: Key[]) => {
+        const confirmDelete = window.confirm(`¿Estás seguro de que quieres eliminar ${selectedKeys.length} usuarios seleccionados?`);
+        if (!confirmDelete) return;
+
+        const toastId = toast.loading(`Eliminando ${selectedKeys.length} usuarios...`);
+        try {
+            const promises = selectedKeys.map(key =>
+                fetch(`/api/users/${key}`, { method: 'DELETE' })
+                    .then(res => {
+                        if (!res.ok) throw new Error(`Falló al eliminar usuario ${key}`);
+                        return res.json();
+                    })
+            );
+
+            await Promise.all(promises);
+
+            toast.success("Usuarios eliminados correctamente.", { id: toastId });
+            fetchUsers();
+        } catch (err: any) {
+            console.error(err);
+            toast.error("Hubo errores al eliminar algunos usuarios.", { id: toastId });
+            fetchUsers();
         }
     };
 
@@ -184,6 +209,16 @@ export default function UserList() {
     // Status options need to be mapped to {name, uid} for GenericTable
     const statusOptions = useMemo(() => userStatusOptionsForFilter.map(opt => ({ name: opt.label, uid: opt.key })), []);
 
+    const bulkActions: BulkAction[] = [
+        {
+            key: "delete",
+            label: "Eliminar",
+            color: "danger",
+            icon: <DeleteIcon />,
+            onClick: handleBulkDelete,
+        }
+    ];
+
     return (
         <div className="space-y-4">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestión de Usuarios</h1>
@@ -200,6 +235,7 @@ export default function UserList() {
                 statusColorMap={statusColorMap}
                 getFilterValue={getFilterValue}
                 emptyContent={users.length === 0 && !isLoading ? "No hay usuarios registrados." : "Ningún usuario coincide con los filtros."}
+                bulkActions={bulkActions}
             />
         </div>
     );

@@ -43,6 +43,14 @@ export interface StatusOption {
     uid: string;
 }
 
+export interface BulkAction {
+    key: string;
+    label: string;
+    icon?: React.ReactNode;
+    onClick: (selectedKeys: Key[]) => Promise<void> | void;
+    color?: "default" | "primary" | "secondary" | "success" | "warning" | "danger";
+}
+
 interface GenericTableProps<T> {
     data: T[];
     columns: ColumnDef[];
@@ -62,6 +70,7 @@ interface GenericTableProps<T> {
     parseApiDateStringToDate?: (dateStr: string | null | undefined) => Date | null;
     dateValueToYYYYMMDD?: (dateValue: DateValue | null) => string | null;
     getFilterValue?: (item: T, columnKey: Key) => string;
+    bulkActions?: BulkAction[];
 }
 
 export default function GenericTable<T extends { id?: Key | number | string, status?: string | null, [key: string]: any }>({
@@ -81,7 +90,8 @@ export default function GenericTable<T extends { id?: Key | number | string, sta
     title,
     emptyContent,
     parseApiDateStringToDate: customParseDate,
-    getFilterValue
+    getFilterValue,
+    bulkActions
 }: GenericTableProps<T>) {
 
     // --- State ---
@@ -229,6 +239,46 @@ export default function GenericTable<T extends { id?: Key | number | string, sta
 
     // --- Content ---
     const topContent = useMemo(() => {
+        const hasSelection = selectedKeys === "all" || selectedKeys.size > 0;
+
+        if (hasSelection && bulkActions && bulkActions.length > 0) {
+            return (
+                <div className="flex flex-col gap-4">
+                    <div className="flex justify-between items-center gap-3 bg-default-100 p-2 rounded-lg">
+                        <div className="flex items-center gap-2">
+                            <span className="text-small font-bold">
+                                {selectedKeys === "all"
+                                    ? `Todos los items seleccionados (${filteredItems.length})`
+                                    : `${selectedKeys.size} seleccionados`}
+                            </span>
+                        </div>
+                        <div className="flex gap-2">
+                            {bulkActions.map((action) => (
+                                <Button
+                                    key={action.key}
+                                    size="sm"
+                                    color={action.color || "primary"}
+                                    startContent={action.icon}
+                                    onPress={async () => {
+                                        let keysToProcess: Key[] = [];
+                                        if (selectedKeys === "all") {
+                                            keysToProcess = filteredItems.map(item => item.id as Key);
+                                        } else {
+                                            keysToProcess = Array.from(selectedKeys);
+                                        }
+                                        await action.onClick(keysToProcess);
+                                        setSelectedKeys(new Set([])); // Clear selection after action
+                                    }}
+                                >
+                                    {action.label}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         return (
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col sm:flex-row justify-between items-end gap-3">
@@ -329,9 +379,9 @@ export default function GenericTable<T extends { id?: Key | number | string, sta
     }, [
         filterSearchText, statusFilter, visibleColumns, columns, filterableAttributes,
         onSearchTextChange, onRowsPerPageChange, data.length, onAdd, onExport,
-        onClearSearchOrDate, filteredItems.length, rowsPerPage, selectedFilterAttribute,
+        onClearSearchOrDate, filteredItems, rowsPerPage, selectedFilterAttribute,
         dateRangeFilter, selectedColumnMeta, isExportingCsv, isExportingPdf, entityName,
-        statusOptions, enableDateFilter
+        statusOptions, enableDateFilter, selectedKeys, bulkActions
     ]);
 
     const bottomContent = useMemo(() => {

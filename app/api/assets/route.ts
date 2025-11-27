@@ -47,22 +47,6 @@ export async function GET(request: Request) {
           a.image_url,
           a.created_at,
           a.updated_at
-      FROM
-          assets a
-      LEFT JOIN
-          sections s ON a.current_section_id = s.id
-      LEFT JOIN
-          locations l ON a.current_location_id = l.id
-      LEFT JOIN
-          companies c ON a.supplier_company_id = c.id
-      ORDER BY
-          a.created_at DESC;
-    `;
-
-    const [assetRows] = await pool.query<IAssetAPI[]>(query);
-
-    // Convertir timestamps a string ISO para consistencia
-    const assetsWithISOStrings = assetRows.map(asset => ({
       ...asset,
       created_at: asset.created_at ? new Date(asset.created_at).toISOString() : '', // O null si prefieres
       updated_at: asset.updated_at ? new Date(asset.updated_at).toISOString() : '', // O null
@@ -139,14 +123,14 @@ export async function POST(request: NextRequest) {
       }
 
       const query = `
-        INSERT INTO assets (
-          product_name, serial_number, inventory_code, description,
-          current_section_id, current_location_id, supplier_company_id,
-          purchase_date, invoice_number, warranty_expiry_date,
-          acquisition_procedure, status, image_url,
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW());
-      `;
+        INSERT INTO assets(
+      product_name, serial_number, inventory_code, description,
+      current_section_id, current_location_id, supplier_company_id,
+      purchase_date, invoice_number, warranty_expiry_date,
+      acquisition_procedure, status, image_url,
+      created_at, updated_at
+    ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW());
+    `;
       const params = [
         validatedData.product_name, validatedData.serial_number || null, validatedData.inventory_code,
         validatedData.description || null, validatedData.current_section_id,

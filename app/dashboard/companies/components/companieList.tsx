@@ -1,8 +1,5 @@
-// app/dashboard/companies/components/companieList.tsx
 "use client";
 
-import React, { useEffect, useState, Key, useCallback } from "react";
-import { Chip, Tooltip, Button, SortDescriptor } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 
@@ -11,7 +8,9 @@ import { DeleteIcon } from "@/components/icons/DeleteIcon";
 import { EyeIcon } from "@/components/icons/EyeIcon";
 
 import { CompanyRecord } from "@/app/api/companies/route";
-import GenericTable from "../../components/GenericTable";
+import GenericTable, { BulkAction } from "../../components/GenericTable";
+import { useCallback, useState, useEffect, Key } from "react";
+import { Tooltip, Button, SortDescriptor } from "@heroui/react";
 
 const columns = [
     { uid: 'id', name: 'ID', sortable: true, filterable: false },
@@ -65,6 +64,31 @@ export default function CompanieList() {
             fetchCompanies();
         } catch (err: any) {
             toast.error(err.message || "No se pudo eliminar la empresa.", { id: toastId });
+        }
+    };
+
+    const handleBulkDelete = async (selectedKeys: Key[]) => {
+        const confirmDelete = window.confirm(`¿Estás seguro de que quieres eliminar ${selectedKeys.length} empresas seleccionadas?`);
+        if (!confirmDelete) return;
+
+        const toastId = toast.loading(`Eliminando ${selectedKeys.length} empresas...`);
+        try {
+            const promises = selectedKeys.map(key =>
+                fetch(`/api/companies/${key}`, { method: 'DELETE' })
+                    .then(res => {
+                        if (!res.ok) throw new Error(`Falló al eliminar empresa ${key}`);
+                        return res.json();
+                    })
+            );
+
+            await Promise.all(promises);
+
+            toast.success("Empresas eliminadas correctamente.", { id: toastId });
+            fetchCompanies();
+        } catch (err: any) {
+            console.error(err);
+            toast.error("Hubo errores al eliminar algunas empresas.", { id: toastId });
+            fetchCompanies();
         }
     };
 
@@ -170,6 +194,16 @@ export default function CompanieList() {
         }
     };
 
+    const bulkActions: BulkAction[] = [
+        {
+            key: "delete",
+            label: "Eliminar",
+            color: "danger",
+            icon: <DeleteIcon />,
+            onClick: handleBulkDelete,
+        }
+    ];
+
     return (
         <div className="space-y-4">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestión de Empresas</h1>
@@ -184,6 +218,7 @@ export default function CompanieList() {
                 onExport={handleExport}
                 getFilterValue={getFilterValue}
                 emptyContent={companies.length === 0 && !isLoading ? "No hay empresas registradas." : "Ninguna empresa coincide con los filtros."}
+                bulkActions={bulkActions}
             />
         </div>
     );

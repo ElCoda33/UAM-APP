@@ -203,7 +203,7 @@ export interface IAssetAPI extends RowDataPacket {
     image_url: string | null;
     created_at: string; // Formato ISO string
     updated_at: string; // Formato ISO string
-    // deleted_at?: string | null; // Si eventualmente implementas soft delete para assets
+    deleted_at?: string | null; // Si eventualmente implementas soft delete para assets
 }
 
 

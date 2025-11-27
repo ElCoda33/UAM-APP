@@ -11,10 +11,11 @@ import { toast } from 'react-hot-toast';
 // Icons
 import { EditIcon } from '@/components/icons/EditIcon';
 import { EyeIcon } from '@/components/icons/EyeIcon';
+import { DeleteIcon } from '@/components/icons/DeleteIcon';
 import MoveUpRoundedIcon from '@mui/icons-material/MoveUpRounded';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 
-import GenericTable from '../../components/GenericTable';
+import GenericTable, { BulkAction } from '../../components/GenericTable';
 import { columns as columnDefinitions, statusOptions } from '../../../../components/assetList/data';
 import { IAssetAPI } from '@/lib/schema';
 
@@ -63,6 +64,41 @@ export default function AssetList() {
         };
         fetchAssetsFromAPI();
     }, []);
+
+    const handleBulkDelete = async (selectedKeys: Key[]) => {
+        const confirmDelete = window.confirm(`¿Estás seguro de que quieres eliminar ${selectedKeys.length} activos seleccionados?`);
+        if (!confirmDelete) return;
+
+        const toastId = toast.loading(`Eliminando ${selectedKeys.length} activos...`);
+        try {
+            const promises = selectedKeys.map(key =>
+                fetch(`/api/assets/${key}`, { method: 'DELETE' })
+                    .then(res => {
+                        if (!res.ok) throw new Error(`Falló al eliminar activo ${key}`);
+                        return res.json();
+                    })
+            );
+
+            await Promise.all(promises);
+
+            toast.success("Activos eliminados correctamente.", { id: toastId });
+            // Refresh assets
+            const response = await fetch('/api/assets');
+            if (response.ok) {
+                const data: IAssetAPI[] = await response.json();
+                setAssets(data);
+            }
+        } catch (err: any) {
+            console.error(err);
+            toast.error("Hubo errores al eliminar algunos activos.", { id: toastId });
+            // Refresh anyway
+            const response = await fetch('/api/assets');
+            if (response.ok) {
+                const data: IAssetAPI[] = await response.json();
+                setAssets(data);
+            }
+        }
+    };
 
     const renderCell = useCallback((asset: IAssetAPI, columnKey: Key): React.ReactNode => {
         const cellValue = asset[columnKey as keyof IAssetAPI];
@@ -170,6 +206,16 @@ export default function AssetList() {
         }
     };
 
+    const bulkActions: BulkAction[] = [
+        {
+            key: "delete",
+            label: "Eliminar",
+            color: "danger",
+            icon: <DeleteIcon />,
+            onClick: handleBulkDelete,
+        }
+    ];
+
     return (
         <div className="space-y-4 p-4 md:p-0">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestión de Activos</h1>
@@ -185,6 +231,7 @@ export default function AssetList() {
                 onExport={handleExport}
                 enableDateFilter={true}
                 statusColorMap={statusColorMap}
+                bulkActions={bulkActions}
             />
         </div>
     );

@@ -1,4 +1,3 @@
-// app/dashboard/softwareLicenses/components/softwareLicenseList/SoftwareLicenseList.tsx
 "use client";
 
 import React, { useEffect, useState, Key, useCallback } from "react";
@@ -15,7 +14,7 @@ import { EyeIcon } from "@/components/icons/EyeIcon";
 import { SoftwareLicenseListAPIRecord } from "@/app/api/softwareLicenses/route";
 import { COLUMNS_SOFTWARE_LICENSES, INITIAL_VISIBLE_LICENSE_COLUMNS } from "./data";
 import { formatDate, formatLicenseType, getLicenseChipStatus } from "./utils";
-import GenericTable from "../../../components/GenericTable";
+import GenericTable, { BulkAction } from "../../../components/GenericTable";
 
 export default function SoftwareLicenseList() {
     const router = useRouter();
@@ -57,6 +56,31 @@ export default function SoftwareLicenseList() {
             fetchLicenses();
         } catch (err: any) {
             toast.error(err.message || "No se pudo eliminar la licencia.", { id: toastId });
+        }
+    };
+
+    const handleBulkDelete = async (selectedKeys: Key[]) => {
+        const confirmDelete = window.confirm(`¿Estás seguro de que quieres eliminar ${selectedKeys.length} licencias seleccionadas?`);
+        if (!confirmDelete) return;
+
+        const toastId = toast.loading(`Eliminando ${selectedKeys.length} licencias...`);
+        try {
+            const promises = selectedKeys.map(key =>
+                fetch(`/api/softwareLicenses/${key}`, { method: 'DELETE' })
+                    .then(res => {
+                        if (!res.ok) throw new Error(`Falló al eliminar licencia ${key}`);
+                        return res.json();
+                    })
+            );
+
+            await Promise.all(promises);
+
+            toast.success("Licencias eliminadas correctamente.", { id: toastId });
+            fetchLicenses();
+        } catch (err: any) {
+            console.error(err);
+            toast.error("Hubo errores al eliminar algunas licencias.", { id: toastId });
+            fetchLicenses();
         }
     };
 
@@ -167,6 +191,16 @@ export default function SoftwareLicenseList() {
         }
     };
 
+    const bulkActions: BulkAction[] = [
+        {
+            key: "delete",
+            label: "Eliminar",
+            color: "danger",
+            icon: <DeleteIcon />,
+            onClick: handleBulkDelete,
+        }
+    ];
+
     return (
         <div className="space-y-4">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestión de Licencias de Software</h1>
@@ -181,6 +215,7 @@ export default function SoftwareLicenseList() {
                 onExport={handleExport}
                 getFilterValue={getFilterValue}
                 emptyContent={licenses.length === 0 && !isLoading ? "No hay licencias registradas." : "Ninguna licencia coincide con los filtros."}
+                bulkActions={bulkActions}
             />
         </div>
     );

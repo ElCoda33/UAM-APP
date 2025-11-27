@@ -10,7 +10,7 @@ import { DeleteIcon } from '@/components/icons/DeleteIcon';
 import { EyeIcon } from '@/components/icons/EyeIcon';
 
 import { SectionRecord } from '@/app/api/sections/route';
-import GenericTable from '../../components/GenericTable';
+import GenericTable, { BulkAction } from '../../components/GenericTable';
 
 const columns = [
     { uid: 'name', name: 'Nombre', sortable: true, filterable: true },
@@ -63,6 +63,31 @@ export default function SectionsTable() {
             fetchSections();
         } catch (err: any) {
             toast.error(err.message || "No se pudo eliminar la sección.", { id: toastId });
+        }
+    };
+
+    const handleBulkDelete = async (selectedKeys: Key[]) => {
+        const confirmDelete = window.confirm(`¿Estás seguro de que quieres eliminar ${selectedKeys.length} secciones seleccionadas?`);
+        if (!confirmDelete) return;
+
+        const toastId = toast.loading(`Eliminando ${selectedKeys.length} secciones...`);
+        try {
+            const promises = selectedKeys.map(key =>
+                fetch(`/api/sections/${key}`, { method: 'DELETE' })
+                    .then(res => {
+                        if (!res.ok) throw new Error(`Falló al eliminar sección ${key}`);
+                        return res.json();
+                    })
+            );
+
+            await Promise.all(promises);
+
+            toast.success("Secciones eliminadas correctamente.", { id: toastId });
+            fetchSections();
+        } catch (err: any) {
+            console.error(err);
+            toast.error("Hubo errores al eliminar algunas secciones.", { id: toastId });
+            fetchSections();
         }
     };
 
@@ -159,6 +184,16 @@ export default function SectionsTable() {
         }
     };
 
+    const bulkActions: BulkAction[] = [
+        {
+            key: "delete",
+            label: "Eliminar",
+            color: "danger",
+            icon: <DeleteIcon />,
+            onClick: handleBulkDelete,
+        }
+    ];
+
     return (
         <div className="space-y-4">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestión de Secciones</h1>
@@ -173,6 +208,7 @@ export default function SectionsTable() {
                 onExport={handleExport}
                 getFilterValue={getFilterValue}
                 emptyContent={sections.length === 0 && !isLoading ? "No hay secciones registradas." : "Ninguna sección coincide con los filtros."}
+                bulkActions={bulkActions}
             />
         </div>
     );

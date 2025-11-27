@@ -1,4 +1,4 @@
-// app/dashboard/locations/components/locationsList.tsx
+
 "use client";
 
 import React, { useEffect, useState, Key, useCallback } from "react";
@@ -11,7 +11,7 @@ import { DeleteIcon } from "@/components/icons/DeleteIcon";
 import { EyeIcon } from "@/components/icons/EyeIcon";
 
 import { LocationRecord } from "@/app/api/locations/route";
-import GenericTable from "../../components/GenericTable";
+import GenericTable, { BulkAction } from "../../components/GenericTable";
 
 const columns = [
     { uid: 'id', name: 'ID', sortable: true, filterable: false },
@@ -63,6 +63,31 @@ export default function LocationsList() {
             fetchLocations();
         } catch (err: any) {
             toast.error(err.message || "No se pudo eliminar la ubicación.", { id: toastId });
+        }
+    };
+
+    const handleBulkDelete = async (selectedKeys: Key[]) => {
+        const confirmDelete = window.confirm(`¿Estás seguro de que quieres eliminar ${selectedKeys.length} ubicaciones seleccionadas?`);
+        if (!confirmDelete) return;
+
+        const toastId = toast.loading(`Eliminando ${selectedKeys.length} ubicaciones...`);
+        try {
+            const promises = selectedKeys.map(key =>
+                fetch(`/api/locations/${key}`, { method: 'DELETE' })
+                    .then(res => {
+                        if (!res.ok) throw new Error(`Falló al eliminar ubicación ${key}`);
+                        return res.json();
+                    })
+            );
+
+            await Promise.all(promises);
+
+            toast.success("Ubicaciones eliminadas correctamente.", { id: toastId });
+            fetchLocations();
+        } catch (err: any) {
+            console.error(err);
+            toast.error("Hubo errores al eliminar algunas ubicaciones.", { id: toastId });
+            fetchLocations();
         }
     };
 
@@ -157,6 +182,16 @@ export default function LocationsList() {
         }
     };
 
+    const bulkActions: BulkAction[] = [
+        {
+            key: "delete",
+            label: "Eliminar",
+            color: "danger",
+            icon: <DeleteIcon />,
+            onClick: handleBulkDelete,
+        }
+    ];
+
     return (
         <div className="space-y-4">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestión de Ubicaciones Físicas</h1>
@@ -171,6 +206,7 @@ export default function LocationsList() {
                 onExport={handleExport}
                 getFilterValue={getFilterValue}
                 emptyContent={locations.length === 0 && !isLoading ? "No hay ubicaciones registradas." : "Ninguna ubicación coincide con los filtros."}
+                bulkActions={bulkActions}
             />
         </div>
     );
