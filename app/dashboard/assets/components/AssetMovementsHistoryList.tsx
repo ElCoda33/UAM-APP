@@ -359,20 +359,20 @@ export default function AssetMovementsHistoryList({ assetId, assetName }: AssetM
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
           <div>
             <label className="text-xs text-foreground-600 block mb-1">Fecha Transf. (Desde)</label>
-            <DatePicker showMonthAndYearPickers aria-label="Fecha Transferencia Desde" value={filters.transferDateRange.from} onChange={val => handleDateRangeFilterChange('transferDateRange', 'from', val)} granularity="day" variant="bordered" size="sm" fullWidth />
+            <DatePicker showMonthAndYearPickers aria-label="Fecha Transferencia Desde" value={filters.transferDateRange.from as any} onChange={val => handleDateRangeFilterChange('transferDateRange', 'from', val)} granularity="day" variant="bordered" size="sm" fullWidth />
           </div>
           <div>
             <label className="text-xs text-foreground-600 block mb-1">Fecha Transf. (Hasta)</label>
-            <DatePicker showMonthAndYearPickers aria-label="Fecha Transferencia Hasta" value={filters.transferDateRange.to} onChange={val => handleDateRangeFilterChange('transferDateRange', 'to', val)} granularity="day" variant="bordered" size="sm" fullWidth />
+            <DatePicker showMonthAndYearPickers aria-label="Fecha Transferencia Hasta" value={filters.transferDateRange.to as any} onChange={val => handleDateRangeFilterChange('transferDateRange', 'to', val)} granularity="day" variant="bordered" size="sm" fullWidth />
           </div>
 
           <div>
             <label className="text-xs text-foreground-600 block mb-1">Fecha Recep. (Desde)</label>
-            <DatePicker showMonthAndYearPickers aria-label="Fecha Recepción Desde" value={filters.receivedDateRange.from} onChange={val => handleDateRangeFilterChange('receivedDateRange', 'from', val)} granularity="day" variant="bordered" size="sm" fullWidth />
+            <DatePicker showMonthAndYearPickers aria-label="Fecha Recepción Desde" value={filters.receivedDateRange.from as any} onChange={val => handleDateRangeFilterChange('receivedDateRange', 'from', val)} granularity="day" variant="bordered" size="sm" fullWidth />
           </div>
           <div>
             <label className="text-xs text-foreground-600 block mb-1">Fecha Recep. (Hasta)</label>
-            <DatePicker showMonthAndYearPickers aria-label="Fecha Recepción Hasta" value={filters.receivedDateRange.to} onChange={val => handleDateRangeFilterChange('receivedDateRange', 'to', val)} granularity="day" variant="bordered" size="sm" fullWidth />
+            <DatePicker showMonthAndYearPickers aria-label="Fecha Recepción Hasta" value={filters.receivedDateRange.to as any} onChange={val => handleDateRangeFilterChange('receivedDateRange', 'to', val)} granularity="day" variant="bordered" size="sm" fullWidth />
           </div>
           <Input label="Tipo/Notas" aria-label="Filtrar por Tipo o Notas del Movimiento" placeholder="Filtrar..." value={filters.notes} onValueChange={val => handleFilterChange('notes', val)} startContent={<SearchIcon className="text-default-400" />} isClearable onClear={() => handleFilterChange('notes', "")} variant="bordered" size="sm" />
           <Input label="Desde Sección" aria-label="Filtrar por Sección de Origen" placeholder="Filtrar..." value={filters.from_section_name} onValueChange={val => handleFilterChange('from_section_name', val)} startContent={<SearchIcon className="text-default-400" />} isClearable onClear={() => handleFilterChange('from_section_name', "")} variant="bordered" size="sm" />

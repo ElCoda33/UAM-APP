@@ -179,6 +179,8 @@ export const csvAssetRowSchema = createAssetSchema.deepPartial().extend({
     product_name: z.string().min(1, "product_name es requerido en CSV").max(100).optional(),
     inventory_code: z.string().min(1, "inventory_code es requerido en CSV").max(200).optional(),
     current_section_name: z.string().min(1, "current_section_name es requerido en CSV").optional(), // Para buscar ID
+    current_location_name: z.string().min(1).max(100).optional(), // Para buscar ID de ubicación
+    supplier_company_tax_id: z.string().min(1).max(50).optional(), // Para buscar ID de empresa proveedora
     status: assetStatusEnum.optional(),
 });
 

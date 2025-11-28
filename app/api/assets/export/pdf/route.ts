@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { getPool } from '@/lib/db';
 import puppeteer from 'puppeteer';
+import { PoolConnection } from 'mysql2/promise';
 import { IAssetAPI } from '@/lib/schema'; // O desde donde la hayas definido
 
 interface ExportFilters { // Misma interfaz que en CSV
@@ -20,7 +21,7 @@ interface ExportPayload { // Misma interfaz que en CSV
 }
 
 // Reutilizar fetchFilteredAssets (idealmente movida a un archivo helper)
-async function fetchFilteredAssets(connection: any, payload: ExportPayload): Promise<IAssetAPI[]> {
+async function fetchFilteredAssets(connection: PoolConnection, payload: ExportPayload): Promise<IAssetAPI[]> {
   let query = `
         SELECT a.*, s.name AS current_section_name, l.name AS current_location_name, 
                COALESCE(c.trade_name, c.legal_name) AS supplier_company_name, c.tax_id AS supplier_company_tax_id

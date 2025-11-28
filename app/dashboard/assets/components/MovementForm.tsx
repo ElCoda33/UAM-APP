@@ -199,7 +199,7 @@ export default function MovementForm({ asset, onMoveSuccess, onCancel }: Movemen
         label="Sección de Destino"
         placeholder="Seleccione sección"
         items={allSections}
-        selectedKey={targetSectionName}
+        selectedKey={targetSectionName as any}
         onSelectionChange={(key) => setTargetSectionName(key as string)}
         isLoading={isLoadingSections}
         isDisabled={isSubmitting}
@@ -213,7 +213,7 @@ export default function MovementForm({ asset, onMoveSuccess, onCancel }: Movemen
         label="Ubicación de Destino"
         placeholder={!targetSectionName ? "Seleccione una sección primero" : "Seleccione ubicación"}
         items={availableLocations}
-        selectedKey={targetLocationName}
+        selectedKey={targetLocationName as any}
         onSelectionChange={(key) => setTargetLocationName(key as string)}
         isLoading={isLoadingLocations}
         isDisabled={isSubmitting || !targetSectionName || isLoadingLocations}
@@ -228,7 +228,7 @@ export default function MovementForm({ asset, onMoveSuccess, onCancel }: Movemen
         label="Persona que Recibe"
         placeholder="Buscar por nombre o email..."
         items={allUsers}
-        selectedKey={selectedReceiverId}
+        selectedKey={selectedReceiverId as any}
         onSelectionChange={setSelectedReceiverId}
         isLoading={isLoadingUsers}
         isDisabled={isSubmitting}
@@ -247,7 +247,7 @@ export default function MovementForm({ asset, onMoveSuccess, onCancel }: Movemen
         isDisabled={isSubmitting}
       >
         {tipoDeUbicaciones.map((tipo) => (
-          <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+          <SelectItem key={tipo}>{tipo}</SelectItem>
         ))}
       </Select>
 
@@ -255,8 +255,8 @@ export default function MovementForm({ asset, onMoveSuccess, onCancel }: Movemen
         <DatePicker
           isRequired
           label="Fecha Movimiento"
-          value={movementDate}
-          onChange={setMovementDate as (date: DateValue) => void}
+          value={movementDate as any}
+          onChange={setMovementDate as any}
           granularity="minute"
           variant="bordered"
           isDisabled={isSubmitting}
@@ -265,8 +265,8 @@ export default function MovementForm({ asset, onMoveSuccess, onCancel }: Movemen
         <DatePicker
           isRequired
           label="Fecha Recepción"
-          value={receivedDate}
-          onChange={setReceivedDate as (date: DateValue) => void}
+          value={receivedDate as any}
+          onChange={setReceivedDate as any}
           granularity="minute"
           variant="bordered"
           isDisabled={isSubmitting}

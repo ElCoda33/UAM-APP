@@ -194,7 +194,7 @@ export default function BulkMovementModal({ isOpen, onClose, assetIds, onSuccess
                                     label="Sección de Destino"
                                     placeholder="Seleccione sección"
                                     items={allSections}
-                                    selectedKey={targetSectionId}
+                                    selectedKey={targetSectionId as any}
                                     onSelectionChange={setTargetSectionId}
                                     isLoading={isLoadingSections}
                                     isDisabled={isSubmitting}
@@ -208,7 +208,7 @@ export default function BulkMovementModal({ isOpen, onClose, assetIds, onSuccess
                                     label="Ubicación de Destino"
                                     placeholder={!targetSectionId ? "Seleccione una sección primero" : "Seleccione ubicación"}
                                     items={availableLocations}
-                                    selectedKey={targetLocationId}
+                                    selectedKey={targetLocationId as any}
                                     onSelectionChange={setTargetLocationId}
                                     isLoading={isLoadingLocations}
                                     isDisabled={isSubmitting || !targetSectionId || isLoadingLocations}
@@ -222,7 +222,7 @@ export default function BulkMovementModal({ isOpen, onClose, assetIds, onSuccess
                                     label="Persona que Recibe"
                                     placeholder="Buscar por nombre o email..."
                                     items={allUsers}
-                                    selectedKey={selectedReceiverId}
+                                    selectedKey={selectedReceiverId as any}
                                     onSelectionChange={setSelectedReceiverId}
                                     isLoading={isLoadingUsers}
                                     isDisabled={isSubmitting}
@@ -249,8 +249,8 @@ export default function BulkMovementModal({ isOpen, onClose, assetIds, onSuccess
                                     <DatePicker
                                         isRequired
                                         label="Fecha Movimiento"
-                                        value={movementDate}
-                                        onChange={setMovementDate as (date: DateValue) => void}
+                                        value={movementDate as any}
+                                        onChange={setMovementDate as any}
                                         granularity="minute"
                                         variant="bordered"
                                         isDisabled={isSubmitting}
@@ -259,8 +259,8 @@ export default function BulkMovementModal({ isOpen, onClose, assetIds, onSuccess
                                     <DatePicker
                                         isRequired
                                         label="Fecha Recepción"
-                                        value={receivedDate}
-                                        onChange={setReceivedDate as (date: DateValue) => void}
+                                        value={receivedDate as any}
+                                        onChange={setReceivedDate as any}
                                         granularity="minute"
                                         variant="bordered"
                                         isDisabled={isSubmitting}

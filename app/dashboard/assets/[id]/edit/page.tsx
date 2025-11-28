@@ -1,7 +1,7 @@
 // app/dashboard/assets/[id]/edit/page.tsx
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent, Key } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Input,
@@ -297,7 +297,7 @@ export default function EditAssetPage() {
               <DatePicker
                 name="purchase_date_value"
                 label="Fecha de Compra"
-                value={formData.purchase_date_value}
+                value={formData.purchase_date_value as any}
                 onChange={(date) => handleDateChange("purchase_date_value", date)}
                 variant="bordered"
                 granularity="day"
@@ -306,7 +306,7 @@ export default function EditAssetPage() {
               <DatePicker
                 name="warranty_expiry_date_value"
                 label="Vencimiento de Garantía"
-                value={formData.warranty_expiry_date_value}
+                value={formData.warranty_expiry_date_value as any}
                 onChange={(date) => handleDateChange("warranty_expiry_date_value", date)}
                 variant="bordered"
                 granularity="day"
@@ -328,7 +328,7 @@ export default function EditAssetPage() {
               isDisabled={isSaving}
             >
               {assetStatusOptions.map((opt) => (
-                <SelectItem key={opt.key!} value={opt.key!} textValue={opt.label}>
+                <SelectItem key={opt.key!} textValue={opt.label}>
                   {opt.label}
                 </SelectItem>
               ))}
@@ -345,7 +345,7 @@ export default function EditAssetPage() {
               isDisabled={isSaving}
             >
               {sections.map((section) => (
-                <SelectItem key={section.id} value={String(section.id)} textValue={section.name}>
+                <SelectItem key={section.id} textValue={section.name}>
                   {section.name}
                 </SelectItem>
               ))}
@@ -362,7 +362,7 @@ export default function EditAssetPage() {
               isDisabled={isSaving}
             >
               {locations.map((location) => (
-                <SelectItem key={location.id} value={String(location.id)} textValue={location.name}>
+                <SelectItem key={location.id} textValue={location.name}>
                   {location.name}
                 </SelectItem>
               ))}
@@ -378,7 +378,7 @@ export default function EditAssetPage() {
               isDisabled={isSaving}
             >
               {companies.map((company) => (
-                <SelectItem key={company.id} value={String(company.id)} textValue={company.name || company.legal_name || company.trade_name || `ID: ${company.id}`}>
+                <SelectItem key={company.id} textValue={company.name || company.legal_name || company.trade_name || `ID: ${company.id}`}>
                   {company.name || company.legal_name || company.trade_name || `ID: ${company.id}`}
                 </SelectItem>
               ))}

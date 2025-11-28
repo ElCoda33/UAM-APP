@@ -138,11 +138,11 @@ export default function AddAssetsPage() {
             if (result.successCount > 0 && result.errorCount === 0) {
                 toast.success(`Importación exitosa: ${result.successCount} activos creados.`, { id: toastId, duration: 7000 });
             } else if (result.successCount > 0 && result.errorCount > 0) {
-                toast.warning(`Importación parcial: ${result.successCount} creados, ${result.errorCount} errores. Revisa los detalles.`, { id: toastId, duration: 10000 });
+                toast(`Importación parcial: ${result.successCount} creados, ${result.errorCount} errores. Revisa los detalles.`, { icon: '⚠️', id: toastId, duration: 10000 });
             } else if (result.errorCount > 0 && result.successCount === 0) {
                 toast.error(`Importación fallida: ${result.errorCount} errores. Revisa los detalles.`, { id: toastId, duration: 10000 });
             } else {
-                toast.info("El archivo CSV fue procesado, pero no se crearon activos o no hubo errores reportados.", { id: toastId, duration: 7000 });
+                toast("El archivo CSV fue procesado, pero no se crearon activos o no hubo errores reportados.", { icon: 'ℹ️', id: toastId, duration: 7000 });
             }
             setCsvFile(null); // Limpiar selección
             // Refrescar lista de activos si es necesario: router.refresh();
@@ -175,7 +175,7 @@ export default function AddAssetsPage() {
                                 <CardBody>
                                     <AssetForm
                                         onFormSubmit={handleSingleAssetSubmit}
-                                        isSubmitting={isSubmittingSingle}
+                                        isSubmittingGlobal={isSubmittingSingle}
                                         submitButtonText="Agregar Activo Único"
                                     />
                                 </CardBody>
@@ -195,7 +195,7 @@ export default function AddAssetsPage() {
                                             // Pasamos estos datos comunes a handleMultipleAssetsSubmit
                                             await handleMultipleAssetsSubmit(commonData);
                                         }}
-                                        isSubmitting={isSubmittingMultiple}
+                                        isSubmittingGlobal={isSubmittingMultiple}
                                         submitButtonText="Agregar Lote de Activos"
                                         showFields={['product_name', 'inventory_code', 'description', 'current_section_id', 'current_location_id', 'supplier_company_id', 'purchase_date_value', 'invoice_number', 'warranty_expiry_date_value', 'acquisition_procedure', 'status', 'image_url' /* No serial_number aquí */]}
                                     />

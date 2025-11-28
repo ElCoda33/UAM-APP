@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { getPool } from '@/lib/db';
 import puppeteer from 'puppeteer'; // Asegúrate que puppeteer esté en tus dependencias
-import { RowDataPacket } from 'mysql2/promise';
+import { RowDataPacket, PoolConnection } from 'mysql2/promise';
 import type { AssetMovementRecord } from '@/app/api/assets/[id]/movements/route'; // Ajusta esta ruta si la interfaz está en otro lugar o defínela localmente
 
 // Interfaz para el cuerpo de la solicitud del reporte
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   }
 
   const pool = getPool();
-  let connection: any; // Declara fuera para el bloque finally
+  let connection: PoolConnection | undefined; // Declara fuera para el bloque finally
 
   try {
     connection = await pool.getConnection();

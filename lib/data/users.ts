@@ -1,9 +1,10 @@
 // lib/data/users.ts
 import { getPool } from '@/lib/db'; // Asegúrate que la ruta a db.ts sea correcta
+import { RowDataPacket } from 'mysql2/promise';
 
 // Define un tipo para los detalles del usuario que devuelve esta función
 // Puede ser similar o igual a tu UserDetails en la página
-export interface UserDetailsFromDB {
+export interface UserDetailsFromDB extends RowDataPacket {
   id: number;
   email: string | null;
   first_name: string | null;
@@ -42,7 +43,7 @@ export async function fetchUserById(userId: number): Promise<UserDetailsFromDB |
       LEFT JOIN sections s ON u.section_id = s.id
       WHERE u.id = ?;
     `;
-    const [userRows] = await pool.query<any[]>(query, [userId]);
+    const [userRows] = await pool.query<UserDetailsFromDB[]>(query, [userId]);
     console.log("LIB [fetchUserById]: Query ejecutada. Filas encontradas:", userRows.length);
 
     if (userRows.length === 0) {

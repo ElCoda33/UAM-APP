@@ -261,12 +261,12 @@ export default function AssetForm({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {isFieldVisible('current_section_id') && (
                     <Select label="Sección Actual" name="current_section_id" placeholder="Seleccionar sección" selectedKeys={formData.current_section_id ? [String(formData.current_section_id)] : []} onSelectionChange={(keys) => handleSelectChange("current_section_id", Array.from(keys as Set<Key>)[0] as string | null)} variant="bordered" isRequired isDisabled={isSubmittingGlobal || isLoadingDropdowns} isInvalid={!!formErrors.current_section_id} errorMessage={formErrors.current_section_id}>
-                        {sections.map((opt) => (<SelectItem key={opt.id} value={String(opt.id)} textValue={opt.name}>{opt.name}</SelectItem>))}
+                        {sections.map((opt) => (<SelectItem key={opt.id} textValue={opt.name}>{opt.name}</SelectItem>))}
                     </Select>
                 )}
                 {isFieldVisible('current_location_id') && (
                     <Select label="Ubicación Actual (Opcional)" name="current_location_id" placeholder="Seleccionar ubicación" selectedKeys={formData.current_location_id ? [String(formData.current_location_id)] : []} onSelectionChange={(keys) => handleSelectChange("current_location_id", Array.from(keys as Set<Key>)[0] as string | null)} variant="bordered" isDisabled={isSubmittingGlobal || isLoadingDropdowns || !formData.current_section_id || locations.length === 0} description={!formData.current_section_id ? "Seleccione una sección primero" : (locations.length === 0 ? "No hay ubicaciones para esta sección" : "")} isInvalid={!!formErrors.current_location_id} errorMessage={formErrors.current_location_id}>
-                        {locations.map((opt) => (<SelectItem key={opt.id} value={String(opt.id)} textValue={opt.name}>{opt.name}</SelectItem>))}
+                        {locations.map((opt) => (<SelectItem key={opt.id} textValue={opt.name}>{opt.name}</SelectItem>))}
                     </Select>
                 )}
             </div>
@@ -278,8 +278,8 @@ export default function AssetForm({
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {isFieldVisible('purchase_date_value') && <DatePicker name="purchase_date_value" label="Fecha de Compra (Opcional)" value={formData.purchase_date_value} onChange={(date) => handleDateChange("purchase_date_value", date)} variant="bordered" granularity="day" isDisabled={isSubmittingGlobal} isInvalid={!!formErrors.purchase_date_value} errorMessage={formErrors.purchase_date_value} />}
-                {isFieldVisible('warranty_expiry_date_value') && <DatePicker name="warranty_expiry_date_value" label="Vencimiento de Garantía (Opcional)" value={formData.warranty_expiry_date_value} onChange={(date) => handleDateChange("warranty_expiry_date_value", date)} variant="bordered" granularity="day" isDisabled={isSubmittingGlobal} isInvalid={!!formErrors.warranty_expiry_date_value} errorMessage={formErrors.warranty_expiry_date_value} />}
+                {isFieldVisible('purchase_date_value') && <DatePicker name="purchase_date_value" label="Fecha de Compra (Opcional)" value={formData.purchase_date_value as any} onChange={(date) => handleDateChange("purchase_date_value", date)} variant="bordered" granularity="day" isDisabled={isSubmittingGlobal} isInvalid={!!formErrors.purchase_date_value} errorMessage={formErrors.purchase_date_value} />}
+                {isFieldVisible('warranty_expiry_date_value') && <DatePicker name="warranty_expiry_date_value" label="Vencimiento de Garantía (Opcional)" value={formData.warranty_expiry_date_value as any} onChange={(date) => handleDateChange("warranty_expiry_date_value", date)} variant="bordered" granularity="day" isDisabled={isSubmittingGlobal} isInvalid={!!formErrors.warranty_expiry_date_value} errorMessage={formErrors.warranty_expiry_date_value} />}
             </div>
 
             {isFieldVisible('invoice_number') && <Input name="invoice_number" label="Número de Factura (Opcional)" value={formData.invoice_number || ""} onChange={handleChange} variant="bordered" isDisabled={isSubmittingGlobal} isInvalid={!!formErrors.invoice_number} errorMessage={formErrors.invoice_number} />}
@@ -287,7 +287,7 @@ export default function AssetForm({
 
             {isFieldVisible('status') && (
                 <Select label="Estado del Activo" name="status" placeholder="Seleccionar estado" selectedKeys={formData.status ? [formData.status] : ["in_storage"]} onSelectionChange={(keys) => handleSelectChange("status", Array.from(keys as Set<string>)[0] as string | null)} variant="bordered" isRequired isDisabled={isSubmittingGlobal} isInvalid={!!formErrors.status} errorMessage={formErrors.status}>
-                    {assetStatusOptions.map((opt) => (<SelectItem key={opt.key} value={opt.key} textValue={opt.label}>{opt.label}</SelectItem>))}
+                    {assetStatusOptions.map((opt) => (<SelectItem key={opt.key} textValue={opt.label}>{opt.label}</SelectItem>))}
                 </Select>
             )}
 
