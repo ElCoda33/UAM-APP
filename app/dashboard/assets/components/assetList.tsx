@@ -18,6 +18,7 @@ import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import GenericTable, { BulkAction } from '../../components/GenericTable';
 import { columns as columnDefinitions, statusOptions } from '../../../../components/assetList/data';
 import { IAssetAPI } from '@/lib/schema';
+import BulkMovementModal from './BulkMovementModal';
 
 const statusColorMap: Record<string, ChipProps['color']> = {
     in_use: 'success',
@@ -49,20 +50,27 @@ const INITIAL_DEFAULT_VISIBLE_COLUMNS = [
 export default function AssetList() {
     const [assets, setAssets] = useState<IAssetAPI[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isBulkMoveModalOpen, setIsBulkMoveModalOpen] = useState(false);
+    const [selectedAssetIds, setSelectedAssetIds] = useState<(string | number)[]>([]);
     const router = useRouter();
 
+    const fetchAssets = async () => {
+        setIsLoading(true);
+        try {
+            const response = await fetch('/api/assets');
+            if (!response.ok) throw new Error('Error al obtener los activos');
+            const data: IAssetAPI[] = await response.json();
+            setAssets(data);
+        } catch (err) {
+            console.error(err);
+            toast.error((err as Error).message || "Error cargando activos.")
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchAssetsFromAPI = async () => {
-            setIsLoading(true);
-            try {
-                const response = await fetch('/api/assets');
-                if (!response.ok) throw new Error('Error al obtener los activos');
-                const data: IAssetAPI[] = await response.json();
-                setAssets(data);
-            } catch (err) { console.error(err); toast.error((err as Error).message || "Error cargando activos.") }
-            finally { setIsLoading(false); }
-        };
-        fetchAssetsFromAPI();
+        fetchAssets();
     }, []);
 
     const handleBulkDelete = async (selectedKeys: Key[]) => {
@@ -82,22 +90,22 @@ export default function AssetList() {
             await Promise.all(promises);
 
             toast.success("Activos eliminados correctamente.", { id: toastId });
-            // Refresh assets
-            const response = await fetch('/api/assets');
-            if (response.ok) {
-                const data: IAssetAPI[] = await response.json();
-                setAssets(data);
-            }
+            await fetchAssets();
         } catch (err: any) {
             console.error(err);
             toast.error("Hubo errores al eliminar algunos activos.", { id: toastId });
-            // Refresh anyway
-            const response = await fetch('/api/assets');
-            if (response.ok) {
-                const data: IAssetAPI[] = await response.json();
-                setAssets(data);
-            }
+            await fetchAssets();
         }
+    };
+
+    const handleBulkMove = async (selectedKeys: Key[]) => {
+        setSelectedAssetIds(selectedKeys.map(k => k.toString()));
+        setIsBulkMoveModalOpen(true);
+    };
+
+    const handleBulkMoveSuccess = async () => {
+        await fetchAssets();
+        setSelectedAssetIds([]);
     };
 
     const renderCell = useCallback((asset: IAssetAPI, columnKey: Key): React.ReactNode => {
@@ -208,6 +216,13 @@ export default function AssetList() {
 
     const bulkActions: BulkAction[] = [
         {
+            key: "move",
+            label: "Mover",
+            color: "primary",
+            icon: <MoveUpRoundedIcon fontSize="small" />,
+            onClick: handleBulkMove,
+        },
+        {
             key: "delete",
             label: "Eliminar",
             color: "danger",
@@ -232,6 +247,13 @@ export default function AssetList() {
                 enableDateFilter={true}
                 statusColorMap={statusColorMap}
                 bulkActions={bulkActions}
+            />
+
+            <BulkMovementModal
+                isOpen={isBulkMoveModalOpen}
+                onClose={() => setIsBulkMoveModalOpen(false)}
+                assetIds={selectedAssetIds}
+                onSuccess={handleBulkMoveSuccess}
             />
         </div>
     );

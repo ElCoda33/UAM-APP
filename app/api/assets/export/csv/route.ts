@@ -104,11 +104,11 @@ async function fetchFilteredAssets(connection: any, payload: ExportPayload): Pro
     query += ` ORDER BY a.product_name ASC`;
   }
 
-  const [rows] = await connection.query<IAssetAPI[]>(query, queryParams);
+  const [rows] = await connection.query(query, queryParams);
   // La conversión de fechas a YYYY-MM-DD ya se hace en la query SQL con DATE_FORMAT.
   // La conversión de timestamps a ISO string para created_at/updated_at es buena práctica si se usaran en la API.
   // Para el CSV, los campos de fecha específicos (purchase_date, warranty_expiry_date) ya están formateados.
-  return rows.map(asset => ({
+  return (rows as any[]).map((asset: any) => ({
     ...asset,
     created_at: asset.created_at ? new Date(asset.created_at).toISOString() : '',
     updated_at: asset.updated_at ? new Date(asset.updated_at).toISOString() : '',

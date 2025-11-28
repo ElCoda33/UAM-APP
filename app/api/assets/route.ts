@@ -6,7 +6,6 @@ import { authOptions } from '@/lib/auth';
 import { getPool } from '@/lib/db';
 import { ResultSetHeader } from 'mysql2/promise';
 import { createAssetSchema, IAssetAPI } from '@/lib/schema';
-// Interfaz para el objeto Asset tal como se devolverá desde esta API
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
@@ -15,16 +14,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
   }
 
-  // Opcional: Verificar roles si solo ciertos usuarios pueden ver todos los activos
-  // const userRoles = session.user.roles || [];
-  // if (!userRoles.includes('Admin') && !userRoles.includes('AssetManager')) {
-  //   return NextResponse.json({ message: 'Acceso denegado' }, { status: 403 });
-  // }
-
   const pool = getPool();
 
   try {
-    // Query para obtener activos con nombres de tablas relacionadas
     const query = `
       SELECT
           a.id,
@@ -47,11 +39,21 @@ export async function GET(request: Request) {
           a.image_url,
           a.created_at,
           a.updated_at
-      ...asset,
-      created_at: asset.created_at ? new Date(asset.created_at).toISOString() : '', // O null si prefieres
-      updated_at: asset.updated_at ? new Date(asset.updated_at).toISOString() : '', // O null
-    }));
+      FROM assets a
+      LEFT JOIN sections s ON a.current_section_id = s.id
+      LEFT JOIN locations l ON a.current_location_id = l.id
+      LEFT JOIN companies c ON a.supplier_company_id = c.id
+      WHERE a.deleted_at IS NULL
+      ORDER BY a.created_at DESC
+    `;
 
+    const [rows] = await pool.query<IAssetAPI[]>(query);
+
+    const assetsWithISOStrings = rows.map((asset: IAssetAPI) => ({
+      ...asset,
+      created_at: asset.created_at ? new Date(asset.created_at).toISOString() : '',
+      updated_at: asset.updated_at ? new Date(asset.updated_at).toISOString() : '',
+    }));
 
     return NextResponse.json(assetsWithISOStrings, { status: 200 });
 
@@ -60,8 +62,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'Error interno del servidor al obtener activos' }, { status: 500 });
   }
 }
-
-
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -76,9 +76,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     await connection.beginTransaction();
 
-    let createdAssets: any[] = []; // Para almacenar los datos de los activos creados
-
-    // Comprobar si es un array (lote) o un objeto único
+    let createdAssets: any[] = [];
     const assetsToCreate = Array.isArray(body) ? body : [body];
 
     for (const assetData of assetsToCreate) {
@@ -88,12 +86,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           message: 'Datos de activo inválidos.',
           errors: validation.error.flatten().fieldErrors,
-          invalidAssetData: assetData // Devuelve qué datos fallaron
+          invalidAssetData: assetData
         }, { status: 400 });
       }
       const validatedData = validation.data;
 
-      // Verificar unicidad de inventory_code (para activos no eliminados lógicamente)
       if (validatedData.inventory_code && validatedData.inventory_code.trim() !== "") {
         const [existingInventory] = await connection.query<IAssetAPI[]>(
           "SELECT id FROM assets WHERE inventory_code = ? AND deleted_at IS NULL",
@@ -107,7 +104,7 @@ export async function POST(request: NextRequest) {
           }, { status: 409 });
         }
       }
-      // Verificar unicidad de serial_number (si se provee y para activos no eliminados)
+
       if (validatedData.serial_number) {
         const [existingSerial] = await connection.query<IAssetAPI[]>(
           "SELECT id FROM assets WHERE serial_number = ? AND deleted_at IS NULL",
@@ -124,13 +121,13 @@ export async function POST(request: NextRequest) {
 
       const query = `
         INSERT INTO assets(
-      product_name, serial_number, inventory_code, description,
-      current_section_id, current_location_id, supplier_company_id,
-      purchase_date, invoice_number, warranty_expiry_date,
-      acquisition_procedure, status, image_url,
-      created_at, updated_at
-    ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW());
-    `;
+          product_name, serial_number, inventory_code, description,
+          current_section_id, current_location_id, supplier_company_id,
+          purchase_date, invoice_number, warranty_expiry_date,
+          acquisition_procedure, status, image_url,
+          created_at, updated_at
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW());
+      `;
       const params = [
         validatedData.product_name, validatedData.serial_number || null, validatedData.inventory_code,
         validatedData.description || null, validatedData.current_section_id,
@@ -145,7 +142,6 @@ export async function POST(request: NextRequest) {
       if (!insertId) {
         throw new Error('Fallo al crear el activo en la base de datos.');
       }
-      // Podrías obtener el activo recién creado para devolverlo, o solo el ID
       createdAssets.push({ id: insertId, ...validatedData });
     }
 
@@ -160,7 +156,7 @@ export async function POST(request: NextRequest) {
     console.error('API Error POST /api/assets:', error);
     return NextResponse.json({
       message: error.message || 'Error interno al crear el activo.',
-      field: error.field // Para errores de unicidad específicos
+      field: error.field
     }, { status: 500 });
   } finally {
     if (connection) connection.release();

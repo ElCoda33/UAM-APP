@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { getPool } from '@/lib/db';
 import puppeteer from 'puppeteer';
-import { RowDataPacket } from 'mysql2/promise';
+import { RowDataPacket, PoolConnection } from 'mysql2/promise';
 
 interface Params {
   transferId: string;
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest, context: { params: Params }) {
   }
 
   const pool = getPool();
-  let connection: any;
+  let connection: PoolConnection | undefined;
 
   try {
     connection = await pool.getConnection();
