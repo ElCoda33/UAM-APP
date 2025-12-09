@@ -36,6 +36,10 @@ export async function GET(request: Request) {
           a.invoice_number,
           a.acquisition_procedure,
           a.status,
+          a.asset_type,
+          a.it_device_type,
+          a.ip_address,
+          a.subnet_mask,
           a.image_url,
           a.created_at,
           a.updated_at
@@ -124,9 +128,10 @@ export async function POST(request: NextRequest) {
           product_name, serial_number, inventory_code, description,
           current_section_id, current_location_id, supplier_company_id,
           purchase_date, invoice_number, warranty_expiry_date,
-          acquisition_procedure, status, image_url,
+          acquisition_procedure, status, asset_type, it_device_type,
+          ip_address, subnet_mask, image_url,
           created_at, updated_at
-        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW());
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW());
       `;
       const params = [
         validatedData.product_name, validatedData.serial_number || null, validatedData.inventory_code,
@@ -134,7 +139,8 @@ export async function POST(request: NextRequest) {
         validatedData.current_location_id || null, validatedData.supplier_company_id || null,
         validatedData.purchase_date || null, validatedData.invoice_number || null,
         validatedData.warranty_expiry_date || null, validatedData.acquisition_procedure || null,
-        validatedData.status, validatedData.image_url || null,
+        validatedData.status, validatedData.asset_type || 'otro', validatedData.it_device_type || null,
+        validatedData.ip_address || null, validatedData.subnet_mask || null, validatedData.image_url || null,
       ];
 
       const [result] = await connection.query<ResultSetHeader>(query, params);

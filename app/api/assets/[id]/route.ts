@@ -27,6 +27,10 @@ interface IAssetDetailAPI extends RowDataPacket {
   invoice_number: string | null;
   acquisition_procedure: string | null;
   status: 'in_use' | 'in_storage' | 'under_repair' | 'disposed' | 'lost' | null;
+  asset_type: 'informatica' | 'mobiliario' | 'vehiculo' | 'otro';
+  it_device_type: string | null;
+  ip_address: string | null;
+  subnet_mask: string | null;
   image_url: string | null;
   created_at: string;
   updated_at: string;
@@ -54,7 +58,9 @@ export async function GET(request: Request, context: { params: Params }) {
         a.current_location_id, l.name AS current_location_name,
         a.supplier_company_id, COALESCE(c.trade_name, c.legal_name) AS supplier_company_name,
         DATE_FORMAT(a.purchase_date, '%Y-%m-%d') AS purchase_date,
-        a.invoice_number, a.acquisition_procedure, a.status, a.image_url,
+        a.invoice_number, a.acquisition_procedure, a.status,
+        a.asset_type, a.it_device_type, a.ip_address, a.subnet_mask,
+        a.image_url,
         a.created_at, a.updated_at
       FROM assets a
       LEFT JOIN sections s ON a.current_section_id = s.id
@@ -101,7 +107,8 @@ export async function PUT(request: Request, context: { params: Params }) {
       current_section_id, current_location_id, supplier_company_id,
       purchase_date,
       invoice_number, warranty_expiry_date,
-      acquisition_procedure, status, image_url
+      acquisition_procedure, status, asset_type, it_device_type,
+      ip_address, subnet_mask, image_url
     } = body;
 
     pool = getPool();
@@ -110,7 +117,8 @@ export async function PUT(request: Request, context: { params: Params }) {
         product_name = ?, serial_number = ?, inventory_code = ?, description = ?,
         current_section_id = ?, current_location_id = ?, supplier_company_id = ?,
         purchase_date = ?, invoice_number = ?, warranty_expiry_date = ?,
-        acquisition_procedure = ?, status = ?, image_url = ?,
+        acquisition_procedure = ?, status = ?, asset_type = ?, it_device_type = ?,
+        ip_address = ?, subnet_mask = ?, image_url = ?,
         updated_at = NOW()
       WHERE id = ? AND deleted_at IS NULL;
     `;
@@ -125,6 +133,10 @@ export async function PUT(request: Request, context: { params: Params }) {
       warranty_expiry_date || null,
       acquisition_procedure || null,
       status,
+      asset_type || 'otro',
+      it_device_type || null,
+      ip_address || null,
+      subnet_mask || null,
       image_url || null,
       assetId
     ]);

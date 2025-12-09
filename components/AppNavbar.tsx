@@ -1,7 +1,7 @@
 // components/navbar.tsx
 "use client";
 
-import React, { useState, useMemo } from 'react'; // Eliminado useEffect si no se usa directamente
+import React, { useState, useMemo } from 'react';
 import {
     Navbar,
     NavbarBrand,
@@ -21,7 +21,7 @@ import {
 } from "@heroui/react";
 import { useRouter, usePathname } from 'next/navigation';
 import { signOut, useSession } from "next-auth/react";
-import { siteConfig } from '@/config/site'; //
+import { siteConfig } from '@/config/site';
 import { ThemeSwitch } from '@/components/theme-switch';
 import NotificationBell from './NotificationBell';
 
@@ -48,10 +48,9 @@ export default function AppNavbar() {
     const avatarInitial = useMemo(() => {
         if (!session?.user) return "U";
         const { firstName, lastName, name, email } = session.user;
-        // Prioridad para iniciales de nombre y apellido si existen
         if (firstName) return firstName.charAt(0).toUpperCase();
-        if (name) return name.charAt(0).toUpperCase(); // Si solo hay 'name' (de NextAuth por defecto)
-        if (lastName) return lastName.charAt(0).toUpperCase(); // Si solo hay apellido (raro)
+        if (name) return name.charAt(0).toUpperCase();
+        if (lastName) return lastName.charAt(0).toUpperCase();
         if (email) return email.charAt(0).toUpperCase();
         return "U";
     }, [session?.user]);
@@ -62,15 +61,10 @@ export default function AppNavbar() {
 
     const menuItems = siteConfig.navItems;
 
-    // Función para determinar si un ítem del menú está activo
     const isNavItemActive = (itemHref: string) => {
-        // Caso especial para la raíz si tuvieras un enlace a "/"
         if (itemHref === "/") {
             return pathname === "/";
         }
-        // Para otras rutas, verifica si el pathname actual comienza con el href del ítem.
-        // Esto asegura que /dashboard/users, /dashboard/users/add, /dashboard/users/123/edit
-        // todos activen el ítem del menú para /dashboard/users.
         return pathname.startsWith(itemHref);
     };
 
@@ -106,7 +100,7 @@ export default function AppNavbar() {
                     return (
                         <NavbarItem key={item.href} isActive={isActive}>
                             <HeroUILink
-                                color={isActive ? 'secondary' : 'foreground'} // Cambio a 'secondary' para activo
+                                color={isActive ? 'secondary' : 'foreground'}
                                 href={item.href}
                                 aria-current={isActive ? "page" : undefined}
                             >
@@ -149,6 +143,12 @@ export default function AppNavbar() {
                                 Mi Perfil
                             </DropdownItem>
                             <DropdownItem
+                                key="configuration"
+                                onPress={() => router.push('/dashboard/configuration')}
+                            >
+                                Configuración del Sistema
+                            </DropdownItem>
+                            <DropdownItem
                                 key="logout"
                                 color="danger"
                                 className="text-danger"
@@ -175,7 +175,7 @@ export default function AppNavbar() {
                         <NavbarMenuItem key={`${item.href}-${index}`}>
                             <HeroUILink
                                 className="w-full"
-                                color={isActive ? 'secondary' : 'foreground'} // Cambio a 'secondary' para activo
+                                color={isActive ? 'secondary' : 'foreground'}
                                 href={item.href}
                                 size="lg"
                                 onClick={() => setIsMenuOpen(false)}

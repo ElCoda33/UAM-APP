@@ -128,28 +128,6 @@ CREATE TABLE assets (
   description TEXT NULL,
   product_name VARCHAR(100) NOT NULL,
   warranty_expiry_date DATE NULL,
-  current_section_id INT UNSIGNED NULL,
-  current_location_id INT UNSIGNED NULL,
-  supplier_company_id INT UNSIGNED NULL,
-  purchase_date DATE NULL,
-  invoice_number VARCHAR(50) NULL,
-  acquisition_procedure VARCHAR(200) NULL,
-  status ENUM('in_use', 'in_storage', 'under_repair', 'disposed', 'lost') DEFAULT 'in_storage',
-  image_url VARCHAR(255) NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  deleted_at TIMESTAMP NULL DEFAULT NULL,
-  CONSTRAINT fk_assets_section FOREIGN KEY (current_section_id) REFERENCES sections (id) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_assets_location FOREIGN KEY (current_location_id) REFERENCES locations (id) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_assets_company FOREIGN KEY (supplier_company_id) REFERENCES companies (id) ON DELETE SET NULL ON UPDATE CASCADE,
-  INDEX idx_assets_deleted_at (deleted_at),
-  INDEX idx_assets_serial_number (serial_number),
-  INDEX idx_assets_inventory_code (inventory_code)
-);
-
--- -----------------------------------------------------
--- Table `asset_assignments`
--- -----------------------------------------------------
 CREATE TABLE asset_assignments (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   asset_id INT UNSIGNED NOT NULL,

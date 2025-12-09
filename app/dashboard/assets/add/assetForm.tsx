@@ -17,6 +17,7 @@ import {
 import { toast } from "react-hot-toast";
 import { createAssetSchema } from "@/lib/schema";
 import AssetImageUpload from "@/app/dashboard/assets/components/assetImageUpload";
+import ITAssetFields from "@/app/dashboard/assets/components/ITAssetFields";
 import { DateValue, parseDate, CalendarDate } from "@internationalized/date";
 import type { z } from "zod";
 
@@ -105,6 +106,10 @@ export default function AssetForm({
         warranty_expiry_date_value: null,
         acquisition_procedure: null,
         status: 'in_storage',
+        asset_type: 'otro',
+        it_device_type: null,
+        ip_address: null,
+        subnet_mask: null,
         image_url: null,
         ...(initialData && {
             ...initialData,
@@ -258,7 +263,26 @@ export default function AssetForm({
                 </>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Campos de Tipo de Activo e IT */}
+            <ITAssetFields
+                assetType={formData.asset_type as any}
+                itDeviceType={formData.it_device_type}
+                ipAddress={formData.ip_address}
+                subnetMask={formData.subnet_mask}
+                onAssetTypeChange={(value) => handleSelectChange('asset_type' as any, value)}
+                onITDeviceTypeChange={(value) => handleSelectChange('it_device_type' as any, value)}
+                onFieldChange={(name, value) => handleChange({ target: { name, value } } as any)}
+                isDisabled={isSubmittingGlobal}
+                errors={{
+                    asset_type: formErrors.asset_type as any,
+                    it_device_type: formErrors.it_device_type as any,
+                    ip_address: formErrors.ip_address as any,
+                    subnet_mask: formErrors.subnet_mask as any,
+                }}
+                isVisible={(field) => isFieldVisible(field as any)}
+            />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {isFieldVisible('current_section_id') && (
                     <Select label="Sección Actual" name="current_section_id" placeholder="Seleccionar sección" selectedKeys={formData.current_section_id ? [String(formData.current_section_id)] : []} onSelectionChange={(keys) => handleSelectChange("current_section_id", Array.from(keys as Set<Key>)[0] as string | null)} variant="bordered" isRequired isDisabled={isSubmittingGlobal || isLoadingDropdowns} isInvalid={!!formErrors.current_section_id} errorMessage={formErrors.current_section_id}>
                         {sections.map((opt) => (<SelectItem key={opt.id} textValue={opt.name}>{opt.name}</SelectItem>))}

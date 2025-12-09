@@ -97,6 +97,33 @@ export const assetStatusEnum = z.enum(['in_use', 'in_storage', 'under_repair', '
     required_error: "El estado es requerido.",
 });
 
+// Enums para tipos de activos y dispositivos IT
+export const assetTypeEnum = z.enum(['informatica', 'mobiliario', 'vehiculo', 'otro'], {
+    required_error: "El tipo de activo es requerido.",
+});
+
+export const itDeviceTypeEnum = z.enum([
+    'pc',
+    'notebook',
+    'router',
+    'switch',
+    'access_point',
+    'server',
+    'printer',
+    'firewall',
+    'nas',
+    'otro'
+], {
+    required_error: "El tipo de dispositivo IT es requerido para activos de informática.",
+});
+
+// Función auxiliar para validar IP address
+const ipAddressRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+
+// Función auxiliar para validar subnet mask (dotted decimal o CIDR)
+const subnetMaskRegex = /^(?:(?:255\.){3}(?:255|254|252|248|240|224|192|128|0)|\/(?:[1-2]?[0-9]|3[0-2]))$/;
+
+
 export const updateAssetSchema = z.object({
     product_name: z.string().min(1, "El nombre del producto es requerido.").max(100, "Máximo 100 caracteres."),
     serial_number: z.string().max(100, "Máximo 100 caracteres.").nullable().optional(),
@@ -110,7 +137,20 @@ export const updateAssetSchema = z.object({
     warranty_expiry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").nullable().optional(),
     acquisition_procedure: z.string().max(200, "Máximo 200 caracteres.").nullable().optional(),
     status: assetStatusEnum.refine(val => val !== null, { message: "El estado es requerido." }),
+    asset_type: assetTypeEnum.default('otro'),
+    it_device_type: itDeviceTypeEnum.nullable().optional(),
+    ip_address: z.string().regex(ipAddressRegex, "Formato de IP inválido (ej: 192.168.1.1)").nullable().optional().or(z.literal('')),
+    subnet_mask: z.string().regex(subnetMaskRegex, "Formato de máscara inválido (ej: 255.255.255.0 o /24)").nullable().optional().or(z.literal('')),
     image_url: z.string().url("Debe ser una URL válida.").max(255).nullable().optional(),
+}).refine(data => {
+    // Si asset_type es 'informatica', it_device_type es requerido
+    if (data.asset_type === 'informatica' && !data.it_device_type) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Los activos de informática deben especificar un tipo de dispositivo",
+    path: ["it_device_type"]
 });
 
 
@@ -151,7 +191,8 @@ export const updateLocationSchema = locationSchema.partial(); // Renombrado de u
 
 
 
-export const createAssetSchema = z.object({
+// Schema base para assets (sin refine, para permitir omit/deepPartial)
+const baseAssetSchema = z.object({
     product_name: z.string().min(1, "El nombre del producto es requerido.").max(100, "Máximo 100 caracteres."),
     serial_number: z.string().max(100, "Máximo 100 caracteres.").nullable().optional(),
     inventory_code: z.string().max(200, "Máximo 200 caracteres.").optional(),
@@ -164,17 +205,44 @@ export const createAssetSchema = z.object({
     warranty_expiry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha debe ser YYYY-MM-DD").nullable().optional(),
     acquisition_procedure: z.string().max(200, "Máximo 200 caracteres.").nullable().optional(),
     status: assetStatusEnum,
+    asset_type: assetTypeEnum.default('otro'),
+    it_device_type: itDeviceTypeEnum.nullable().optional(),
+    ip_address: z.string().regex(ipAddressRegex, "Formato de IP inválido (ej: 192.168.1.1)").nullable().optional().or(z.literal('')),
+    subnet_mask: z.string().regex(subnetMaskRegex, "Formato de máscara inválido (ej: 255.255.255.0 o /24)").nullable().optional().or(z.literal('')),
     image_url: z.string().url("Debe ser una URL válida.").max(255).nullable().optional(),
 });
 
+export const createAssetSchema = baseAssetSchema.refine(data => {
+    // Si asset_type es 'informatica', it_device_type es requerido
+    if (data.asset_type === 'informatica' && !data.it_device_type) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Los activos de informática deben especificar un tipo de dispositivo",
+    path: ["it_device_type"]
+});
+
+// Schema para conexiones de red
+export const networkConnectionSchema = z.object({
+    asset_id: z.coerce.number().int().positive("ID de activo requerido"),
+    connected_to_asset_id: z.coerce.number().int().positive("ID de activo conectado requerido"),
+    connection_type: z.enum(['ethernet', 'wifi', 'fiber', 'uplink', 'other']).default('ethernet'),
+    port_number: z.string().max(50, "Máximo 50 caracteres").nullable().optional(),
+    notes: z.string().max(65535).nullable().optional(),
+});
+
+export const createNetworkConnectionSchema = networkConnectionSchema;
+export const updateNetworkConnectionSchema = networkConnectionSchema.partial();
+
 // Esquema para un lote de activos (campos comunes + array de seriales)
 export const createMultipleAssetsSchema = z.object({
-    commonData: createAssetSchema.omit({ serial_number: true }), // Datos comunes sin el serial
+    commonData: baseAssetSchema.omit({ serial_number: true }), // Usar base schema sin refine
     serial_numbers: z.array(z.string().min(1, "El número de serie no puede estar vacío.").max(100)).min(1, "Debe ingresar al menos un número de serie."),
 });
 
 // Esquema para la validación de una fila del CSV (similar a createAssetSchema pero todos opcionales para validación inicial)
-export const csvAssetRowSchema = createAssetSchema.deepPartial().extend({
+export const csvAssetRowSchema = baseAssetSchema.deepPartial().extend({
     // Asegurar que los campos obligatorios en la DB lo sean también aquí si es necesario post-parseo
     product_name: z.string().min(1, "product_name es requerido en CSV").max(100).optional(),
     inventory_code: z.string().min(1, "inventory_code es requerido en CSV").max(200).optional(),
@@ -202,6 +270,10 @@ export interface IAssetAPI extends RowDataPacket {
     invoice_number: string | null;
     acquisition_procedure: string | null;
     status: 'in_use' | 'in_storage' | 'under_repair' | 'disposed' | 'lost' | null;
+    asset_type: 'informatica' | 'mobiliario' | 'vehiculo' | 'otro';
+    it_device_type: 'pc' | 'notebook' | 'router' | 'switch' | 'access_point' | 'server' | 'printer' | 'firewall' | 'nas' | 'otro' | null;
+    ip_address: string | null;
+    subnet_mask: string | null;
     image_url: string | null;
     created_at: string; // Formato ISO string
     updated_at: string; // Formato ISO string
