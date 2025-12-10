@@ -1,15 +1,14 @@
-// app/dashboard/assets/add/page.tsx
 "use client";
-import React, { useState, FormEvent } from "react";
+import React, { useState } from "react";
 import {
     Card, CardHeader, CardBody, Button, Tabs, Tab, Input, Textarea,
-    Spinner, Link as NextUILink
+    Link as NextUILink
 } from "@heroui/react";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
-import { createAssetSchema, createMultipleAssetsSchema } from "@/lib/schema"; // Ajusta la ruta
+import { createAssetSchema, createMultipleAssetsSchema } from "@/lib/schema";
 import type { z } from "zod";
-import AssetForm from "./assetForm"; // El formulario que creamos
+import AssetForm from "./assetForm";
 import { ArrowLeftIcon } from "@/components/icons/ArrowLeftIcon";
 
 export default function AddAssetsPage() {
@@ -40,8 +39,7 @@ export default function AddAssetsPage() {
                 throw new Error(result.message || 'Error al agregar el activo.');
             }
             toast.success(`Activo '${result.assets[0]?.product_name}' agregado con ID: ${result.assets[0]?.id}.`, { id: toastId, duration: 5000 });
-            // Podrías resetear el formulario aquí si AssetForm no lo hace.
-            // O redirigir: router.push('/dashboard/assets');
+            router.push('/dashboard/assets');
         } catch (error: any) {
             toast.error(error.message || 'No se pudo agregar el activo.', { id: toastId });
             console.error("Error submitting single asset:", error);
@@ -78,7 +76,7 @@ export default function AddAssetsPage() {
             const response = await fetch('/api/assets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(assetsToCreate), // Enviar array de activos
+                body: JSON.stringify(assetsToCreate),
             });
             const result = await response.json();
 
@@ -86,8 +84,8 @@ export default function AddAssetsPage() {
                 throw new Error(result.message || 'Error al agregar el lote de activos.');
             }
             toast.success(`${result.assets?.length || 0} activos agregados en lote.`, { id: toastId, duration: 5000 });
-            setMultipleAssetSerials(""); // Limpiar textarea
-            // Podrías resetear el formulario de datos comunes aquí.
+            setMultipleAssetSerials("");
+            router.push('/dashboard/assets');
         } catch (error: any) {
             toast.error(error.message || 'No se pudo agregar el lote de activos.', { id: toastId });
             console.error("Error submitting multiple assets:", error);
@@ -101,10 +99,10 @@ export default function AddAssetsPage() {
         if (file) {
             if (file.type === "text/csv") {
                 setCsvFile(file);
-                setCsvImportResults(null); // Limpiar resultados anteriores
+                setCsvImportResults(null);
             } else {
                 toast.error("Por favor, seleccione un archivo CSV (.csv).");
-                event.target.value = ""; // Resetear el input
+                event.target.value = "";
                 setCsvFile(null);
             }
         }
@@ -125,11 +123,11 @@ export default function AddAssetsPage() {
         try {
             const response = await fetch('/api/assets/import-csv', {
                 method: 'POST',
-                body: formData, // No establecer Content-Type manualmente, el navegador lo hace por FormData
+                body: formData,
             });
             const result = await response.json();
 
-            if (!response.ok && response.status !== 207) { // 207 es Multi-Status para importaciones parciales
+            if (!response.ok && response.status !== 207) {
                 throw new Error(result.message || `Error al importar CSV (HTTP ${response.status})`);
             }
 
@@ -144,8 +142,7 @@ export default function AddAssetsPage() {
             } else {
                 toast("El archivo CSV fue procesado, pero no se crearon activos o no hubo errores reportados.", { icon: 'ℹ️', id: toastId, duration: 7000 });
             }
-            setCsvFile(null); // Limpiar selección
-            // Refrescar lista de activos si es necesario: router.refresh();
+            setCsvFile(null);
 
         } catch (error: any) {
             toast.error(error.message || "Error crítico durante la importación del CSV.", { id: toastId });
@@ -191,13 +188,11 @@ export default function AddAssetsPage() {
                                     </p>
                                     <AssetForm
                                         onFormSubmit={async (commonData) => {
-                                            // El AssetForm nos da los datos comunes validados (sin S/N)
-                                            // Pasamos estos datos comunes a handleMultipleAssetsSubmit
                                             await handleMultipleAssetsSubmit(commonData);
                                         }}
                                         isSubmittingGlobal={isSubmittingMultiple}
                                         submitButtonText="Agregar Lote de Activos"
-                                        showFields={['product_name', 'inventory_code', 'description', 'current_section_id', 'current_location_id', 'supplier_company_id', 'purchase_date_value', 'invoice_number', 'warranty_expiry_date_value', 'acquisition_procedure', 'status', 'image_url' /* No serial_number aquí */]}
+                                        showFields={['product_name', 'inventory_code', 'description', 'current_section_id', 'current_location_id', 'supplier_company_id', 'purchase_date_value', 'invoice_number', 'warranty_expiry_date_value', 'acquisition_procedure', 'status', 'image_url']}
                                     />
                                     <Textarea
                                         label="Números de Serie (uno por línea o separados por coma)"
@@ -225,10 +220,6 @@ export default function AddAssetsPage() {
                                                     product_name,serial_number,inventory_code,description,current_section_name,current_location_name,supplier_company_tax_id,purchase_date,invoice_number,warranty_expiry_date,acquisition_procedure,status,image_url
                                                 </code>
                                             </li>
-                                            <li>Campos obligatorios en CSV: `product_name`, `inventory_code`, `current_section_name`, `status`.</li>
-                                            <li>Formatos de fecha: `YYYY-MM-DD`.</li>
-                                            <li>Valores para `status`: `in_use`, `in_storage`, `under_repair`, `disposed`, `lost`.</li>
-                                            <li>Para `current_section_name`, `current_location_name` (opcional, pero si se usa, debe existir en la sección padre), y `supplier_company_tax_id` (opcional), asegúrate que los nombres/RUTs coincidan exactamente con los registrados en el sistema.</li>
                                         </ul>
                                     </div>
                                     <Input
@@ -255,9 +246,6 @@ export default function AddAssetsPage() {
                                                         {csvImportResults.errors.map((err: any, index: number) => (
                                                             <li key={index} className="mt-1">
                                                                 Fila {err.row}: {Array.isArray(err.messages) ? err.messages.join("; ") : String(err.messages)}
-                                                                {/* <pre className="text-xs bg-default-100 p-1 rounded mt-0.5 overflow-x-auto">
-                                  Data: {JSON.stringify(err.data)}
-                                </pre> */}
                                                             </li>
                                                         ))}
                                                     </ul>

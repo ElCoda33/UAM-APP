@@ -47,10 +47,6 @@ interface AssetFormProps {
     // Campos a mostrar. Si es undefined, se muestran todos los campos de un activo único.
     // Útil para el formulario de lote, donde S/N se maneja por separado.
     showFields?: Array<keyof AssetFormData>;
-    // Para la carga de imágenes, solo tiene sentido si estamos editando un activo que ya tiene ID.
-    // Para "agregar nuevo", la imagen se asociaría después o mediante URL directa.
-    // Por simplicidad, en el formulario de "agregar", solo permitiremos URL por ahora.
-    // assetIdForImageUpload?: string; // Se podría habilitar si se reestructura el flujo de creación
 }
 
 const stringToDateValue = (dateString: string | null | undefined): DateValue | null => {
@@ -90,7 +86,6 @@ export default function AssetForm({
     isSubmittingGlobal,
     submitButtonText = "Guardar Activo",
     showFields,
-    // assetIdForImageUpload // Descomentar si se implementa subida de imagen al crear
 }: AssetFormProps) {
 
     const defaultFormData: AssetFormData = {
@@ -126,23 +121,42 @@ export default function AssetForm({
     const [isLoadingDropdowns, setIsLoadingDropdowns] = useState(true);
     const [formErrors, setFormErrors] = useState<Partial<Record<keyof AssetFormData, string>>>({});
 
+    // Network Connections State
+    const [pendingConnections, setPendingConnections] = useState<any[]>([]);
+    const [assets, setAssets] = useState<any[]>([]); // For connection dropdown
+    const [newConnection, setNewConnection] = useState({
+        connected_to_asset_id: "",
+        connection_type: "ethernet",
+        port_number: "",
+        notes: ""
+    });
 
     useEffect(() => {
         const fetchDropdownData = async () => {
             setIsLoadingDropdowns(true);
             try {
-                const [sectionsRes, locationsRes, companiesRes] = await Promise.all([
-                    fetch('/api/sections'), fetch('/api/locations'), fetch('/api/companies')
+                const [sectionsRes, locationsRes, companiesRes, assetsRes] = await Promise.all([
+                    fetch('/api/sections'),
+                    fetch('/api/locations'),
+                    fetch('/api/companies'),
+                    fetch('/api/assets')
                 ]);
-                if (!sectionsRes.ok || !locationsRes.ok || !companiesRes.ok) throw new Error("Error al cargar datos para selectores");
+
+                if (!sectionsRes.ok || !locationsRes.ok || !companiesRes.ok || !assetsRes.ok) throw new Error("Error al cargar datos para selectores");
 
                 const sectionsData = await sectionsRes.json();
                 const locationsData = await locationsRes.json();
                 const companiesData = await companiesRes.json();
+                const assetsData = await assetsRes.json();
 
                 setSections(sectionsData.map((s: any) => ({ id: s.id, name: s.name })));
                 setAllLocations(locationsData.map((l: any) => ({ id: l.id, name: l.name, section_id: l.section_id })));
                 setCompanies(companiesData.map((c: any) => ({ id: c.id, name: c.legal_name || c.trade_name || `ID: ${c.id}` })));
+                // We only want IT assets for connections, usually. For now, let's filter purely for 'informatica' or maybe show all?
+                // Let's show all but maybe filter in the UI or here. 'informatica' makes sense for switches etc. 
+                // But you might connect a PC (informatica) to a Switch (also informatica).
+                // Let's keep it simple and filter by 'informatica' as originally intended.
+                setAssets(Array.isArray(assetsData) ? assetsData.filter((a: any) => a.asset_type === 'informatica') : []);
 
             } catch (error) {
                 console.error("Error fetching dropdown data:", error);
@@ -176,7 +190,8 @@ export default function AssetForm({
     };
 
     const handleSelectChange = (name: keyof AssetFormData, selectedKey: Key | null) => {
-        const value = selectedKey ? (name === 'status' ? selectedKey : Number(selectedKey)) : null;
+        const isStringField = name === 'status' || name === 'asset_type' || name === 'it_device_type';
+        const value = selectedKey ? (isStringField ? selectedKey : Number(selectedKey)) : null;
         setFormData(prev => ({ ...prev, [name]: value as any }));
         if (name === 'current_section_id') {
             setFormData(prev => ({ ...prev, current_location_id: null }));
@@ -193,9 +208,24 @@ export default function AssetForm({
         }
     };
 
-    // const handleImageUploadSuccess = (newImageUrl: string) => {
-    //   setFormData(prev => ({ ...prev, image_url: newImageUrl }));
-    // };
+    const handleAddConnection = () => {
+        if (!newConnection.connected_to_asset_id) {
+            toast.error("Seleccione un dispositivo para conectar");
+            return;
+        }
+        setPendingConnections(prev => [...prev, { ...newConnection, connected_to_asset_id: Number(newConnection.connected_to_asset_id) }]);
+        setNewConnection({
+            connected_to_asset_id: "",
+            connection_type: "ethernet",
+            port_number: "",
+            notes: ""
+        });
+        toast.success("Conexión agregada a la lista (pendiente de guardar)");
+    };
+
+    const handleRemoveConnection = (index: number) => {
+        setPendingConnections(prev => prev.filter((_, i) => i !== index));
+    };
 
     const handleSubmit = async (event: FormEvent) => {
         event.preventDefault();
@@ -206,6 +236,7 @@ export default function AssetForm({
             current_section_id: formData.current_section_id === null ? undefined : Number(formData.current_section_id), // Zod espera number o undefined
             purchase_date: dateValueToString(formData.purchase_date_value),
             warranty_expiry_date: dateValueToString(formData.warranty_expiry_date_value),
+            network_connections: pendingConnections // Add connections to payload
         };
         // Eliminar las claves _value que no existen en el schema de Zod
         delete (payloadForValidation as any).purchase_date_value;
@@ -251,38 +282,99 @@ export default function AssetForm({
                 <>
                     <Divider className="my-4" />
                     <Input name="image_url" label="URL de la Imagen (Opcional)" value={formData.image_url || ""} onChange={handleChange} variant="bordered" isDisabled={isSubmittingGlobal} type="url" placeholder="https://ejemplo.com/imagen.png" isInvalid={!!formErrors.image_url} errorMessage={formErrors.image_url} />
-                    {/* Si se quisiera usar AssetImageUpload aquí, se necesitaría una forma de obtener un assetId *antes* de guardar
-           o un flujo de dos pasos: guardar activo base, luego subir imagen.
-           <AssetImageUpload
-             assetId={assetIdForImageUpload} // Esto requeriría que el asset ya exista
-             currentImageUrl={formData.image_url || ""}
-             onUploadSuccess={handleImageUploadSuccess}
-           /> 
-           */}
                     <Divider className="my-4" />
                 </>
             )}
 
             {/* Campos de Tipo de Activo e IT */}
-            <ITAssetFields
-                assetType={formData.asset_type as any}
-                itDeviceType={formData.it_device_type}
-                ipAddress={formData.ip_address}
-                subnetMask={formData.subnet_mask}
-                onAssetTypeChange={(value) => handleSelectChange('asset_type' as any, value)}
-                onITDeviceTypeChange={(value) => handleSelectChange('it_device_type' as any, value)}
-                onFieldChange={(name, value) => handleChange({ target: { name, value } } as any)}
-                isDisabled={isSubmittingGlobal}
-                errors={{
-                    asset_type: formErrors.asset_type as any,
-                    it_device_type: formErrors.it_device_type as any,
-                    ip_address: formErrors.ip_address as any,
-                    subnet_mask: formErrors.subnet_mask as any,
-                }}
-                isVisible={(field) => isFieldVisible(field as any)}
-            />
+            <div className="border border-default-200 p-4 rounded-medium bg-default-50">
+                <ITAssetFields
+                    assetType={formData.asset_type as any}
+                    itDeviceType={formData.it_device_type}
+                    ipAddress={formData.ip_address}
+                    subnetMask={formData.subnet_mask}
+                    onAssetTypeChange={(value) => handleSelectChange('asset_type' as any, value)}
+                    onITDeviceTypeChange={(value) => handleSelectChange('it_device_type' as any, value)}
+                    onFieldChange={(name, value) => handleChange({ target: { name, value } } as any)}
+                    isDisabled={isSubmittingGlobal}
+                    errors={{
+                        asset_type: formErrors.asset_type as any,
+                        it_device_type: formErrors.it_device_type as any,
+                        ip_address: formErrors.ip_address as any,
+                        subnet_mask: formErrors.subnet_mask as any,
+                    }}
+                    isVisible={(field) => isFieldVisible(field as any)}
+                />
+            </div>
 
+            {/* Network Connections - Only for IT Assets */}
+            {formData.asset_type === 'informatica' && (
+                <div className="border border-default-200 p-4 rounded-medium bg-default-50 mt-4">
+                    <h3 className="text-lg font-semibold mb-4">Conexiones de Red (Opcional)</h3>
+                    <div className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Select
+                                label="Conectar a dispositivo"
+                                placeholder="Seleccionar activo"
+                                selectedKeys={newConnection.connected_to_asset_id ? [newConnection.connected_to_asset_id] : []}
+                                onChange={(e) => setNewConnection(prev => ({ ...prev, connected_to_asset_id: e.target.value }))}
+                            >
+                                {assets.map(asset => (
+                                    <SelectItem key={asset.id} textValue={asset.product_name}>
+                                        {asset.product_name} ({asset.inventory_code})
+                                    </SelectItem>
+                                ))}
+                            </Select>
+                            <Select
+                                label="Tipo de Conexión"
+                                selectedKeys={[newConnection.connection_type]}
+                                onChange={(e) => setNewConnection(prev => ({ ...prev, connection_type: e.target.value }))}
+                            >
+                                <SelectItem key="ethernet">Ethernet</SelectItem>
+                                <SelectItem key="wifi">WiFi</SelectItem>
+                                <SelectItem key="fiber">Fibra Óptica</SelectItem>
+                                <SelectItem key="uplink">Uplink</SelectItem>
+                                <SelectItem key="other">Otro</SelectItem>
+                            </Select>
+                            <Input
+                                label="Puerto"
+                                placeholder="Ej: Eth0"
+                                value={newConnection.port_number}
+                                onValueChange={(val) => setNewConnection(prev => ({ ...prev, port_number: val }))}
+                            />
+                            <Input
+                                label="Notas"
+                                placeholder="Detalles..."
+                                value={newConnection.notes}
+                                onValueChange={(val) => setNewConnection(prev => ({ ...prev, notes: val }))}
+                            />
+                        </div>
+                        <Button size="sm" color="primary" onPress={handleAddConnection} isDisabled={!newConnection.connected_to_asset_id}>
+                            Agregar Conexión
+                        </Button>
+
+                        {pendingConnections.length > 0 && (
+                            <div className="mt-4">
+                                <h4 className="text-sm font-medium">Conexiones a agregar:</h4>
+                                <ul className="list-disc list-inside text-sm">
+                                    {pendingConnections.map((conn, idx) => {
+                                        const assetName = assets.find(a => a.id == conn.connected_to_asset_id)?.product_name || "Desconocido";
+                                        return (
+                                            <li key={idx} className="flex justify-between items-center py-1">
+                                                <span>Conectado a: <strong>{assetName}</strong> via {conn.connection_type} {conn.port_number ? `(${conn.port_number})` : ''}</span>
+                                                <Button size="sm" color="danger" variant="light" onPress={() => handleRemoveConnection(idx)}>Eliminar</Button>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {isFieldVisible('current_section_id') && (
                     <Select label="Sección Actual" name="current_section_id" placeholder="Seleccionar sección" selectedKeys={formData.current_section_id ? [String(formData.current_section_id)] : []} onSelectionChange={(keys) => handleSelectChange("current_section_id", Array.from(keys as Set<Key>)[0] as string | null)} variant="bordered" isRequired isDisabled={isSubmittingGlobal || isLoadingDropdowns} isInvalid={!!formErrors.current_section_id} errorMessage={formErrors.current_section_id}>
                         {sections.map((opt) => (<SelectItem key={opt.id} textValue={opt.name}>{opt.name}</SelectItem>))}
@@ -309,15 +401,10 @@ export default function AssetForm({
             {isFieldVisible('invoice_number') && <Input name="invoice_number" label="Número de Factura (Opcional)" value={formData.invoice_number || ""} onChange={handleChange} variant="bordered" isDisabled={isSubmittingGlobal} isInvalid={!!formErrors.invoice_number} errorMessage={formErrors.invoice_number} />}
             {isFieldVisible('acquisition_procedure') && <Input name="acquisition_procedure" label="Procedimiento de Adquisición (Opcional)" value={formData.acquisition_procedure || ""} onChange={handleChange} variant="bordered" isDisabled={isSubmittingGlobal} isInvalid={!!formErrors.acquisition_procedure} errorMessage={formErrors.acquisition_procedure} />}
 
-            {isFieldVisible('status') && (
-                <Select label="Estado del Activo" name="status" placeholder="Seleccionar estado" selectedKeys={formData.status ? [formData.status] : ["in_storage"]} onSelectionChange={(keys) => handleSelectChange("status", Array.from(keys as Set<string>)[0] as string | null)} variant="bordered" isRequired isDisabled={isSubmittingGlobal} isInvalid={!!formErrors.status} errorMessage={formErrors.status}>
-                    {assetStatusOptions.map((opt) => (<SelectItem key={opt.key} textValue={opt.label}>{opt.label}</SelectItem>))}
-                </Select>
-            )}
+            <Select label="Estado del Activo" name="status" placeholder="Seleccionar estado" selectedKeys={formData.status ? [formData.status] : ["in_storage"]} onSelectionChange={(keys) => handleSelectChange("status", Array.from(keys as Set<string>)[0] as string | null)} variant="bordered" isRequired isDisabled={isSubmittingGlobal} isInvalid={!!formErrors.status} errorMessage={formErrors.status}>
+                {assetStatusOptions.map((opt) => (<SelectItem key={opt.key} textValue={opt.label}>{opt.label}</SelectItem>))}
+            </Select>
 
-            <Input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp">
-
-            </Input>
             <div className="flex justify-end pt-4">
                 <Button type="submit" color="primary" isLoading={isSubmittingGlobal} isDisabled={isSubmittingGlobal}>
                     {isSubmittingGlobal ? "Guardando..." : submitButtonText}

@@ -19,7 +19,9 @@ import {
 } from "@heroui/react";
 import { toast } from "react-hot-toast";
 import { ArrowLeftIcon } from "@/components/icons/ArrowLeftIcon";
-import AssetImageUpload from "@/app/dashboard/assets/components/assetImageUpload"; // We'll define this next
+import AssetImageUpload from "@/app/dashboard/assets/components/assetImageUpload";
+import ITAssetFields from "@/app/dashboard/assets/components/ITAssetFields";
+import NetworkConnectionManager from "@/app/dashboard/assets/components/NetworkConnectionManager"; // We'll define this next
 import { parseDate, CalendarDate, DateValue } from "@internationalized/date"; // For DatePicker
 
 // Interfaces for fetched data
@@ -32,12 +34,16 @@ interface AssetData {
   current_section_id: number | null;
   current_location_id: number | null;
   supplier_company_id: number | null;
-  purchase_date: string | null; // YYYY-MM-DD
+  purchase_date: string | null;
   invoice_number: string | null;
-  warranty_expiry_date: string | null; // YYYY-MM-DD
+  warranty_expiry_date: string | null;
   acquisition_procedure: string | null;
   status: 'in_use' | 'in_storage' | 'under_repair' | 'disposed' | 'lost' | null;
   image_url: string | null;
+  asset_type?: 'informatica' | 'mobiliario' | 'vehiculo' | 'otro';
+  it_device_type?: string | null;
+  ip_address?: string | null;
+  subnet_mask?: string | null;
 }
 
 interface Section {
@@ -101,9 +107,10 @@ export default function EditAssetPage() {
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const [formData, setFormData] = useState<Partial<FormState>>({
-    image_url: "", // Initialize image_url
+    image_url: "",
     purchase_date_value: null,
     warranty_expiry_date_value: null,
+    asset_type: 'otro'
   });
   const [originalAsset, setOriginalAsset] = useState<AssetData | null>(null);
   const [sections, setSections] = useState<Section[]>([]);
@@ -124,12 +131,11 @@ export default function EditAssetPage() {
       setIsLoading(true);
       setError(null);
       try {
-        // Parallel fetch for asset details and dropdown options
         const [assetRes, sectionsRes, locationsRes, companiesRes] = await Promise.all([
-          fetch(`/api/assets/${id}`),      // API to be created
-          fetch('/api/sections'),          // Existing API
-          fetch('/api/locations'),         // API to be created based on existing patterns
-          fetch('/api/companies'),         // API to be created
+          fetch(`/api/assets/${id}`),
+          fetch('/api/sections'),
+          fetch('/api/locations'),
+          fetch('/api/companies'),
         ]);
 
         if (!assetRes.ok) throw new Error(`Error al cargar activo: ${assetRes.statusText}`);
@@ -149,14 +155,16 @@ export default function EditAssetPage() {
           acquisition_procedure: assetData.acquisition_procedure || "",
           status: assetData.status || "in_storage",
           image_url: assetData.image_url || "",
+          asset_type: assetData.asset_type || 'otro',
+          it_device_type: assetData.it_device_type || null,
+          ip_address: assetData.ip_address || null,
+          subnet_mask: assetData.subnet_mask || null,
         });
 
         if (!sectionsRes.ok) throw new Error('Error al cargar secciones');
         setSections(await sectionsRes.json());
-
         if (!locationsRes.ok) throw new Error('Error al cargar ubicaciones');
         setLocations(await locationsRes.json());
-
         if (!companiesRes.ok) throw new Error('Error al cargar empresas');
         setCompanies(await companiesRes.json());
 
@@ -177,8 +185,8 @@ export default function EditAssetPage() {
   };
 
   const handleSelectChange = (name: string, key: Key | null) => {
-    if (name === "status") {
-      setFormData(prev => ({ ...prev, [name]: key as AssetData["status"] }));
+    if (name === "status" || name === "asset_type" || name === "it_device_type") {
+      setFormData(prev => ({ ...prev, [name]: key as string }));
     } else {
       setFormData(prev => ({ ...prev, [name]: key ? Number(key) : null }));
     }
@@ -193,12 +201,16 @@ export default function EditAssetPage() {
     toast.success("Imagen del activo actualizada en el formulario. No olvides guardar todos los cambios.");
   };
 
+  // Handler específico para cambios desde ITAssetFields (que pasa name y value directamente)
+  const handleFieldChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     const savingToastId = toast.loading('Guardando cambios del activo...');
 
-    // Prepare payload, converting DateValue back to string
     const payload = {
       ...formData,
       purchase_date: dateValueToString(formData.purchase_date_value),
@@ -207,12 +219,8 @@ export default function EditAssetPage() {
     delete (payload as any).purchase_date_value;
     delete (payload as any).warranty_expiry_date_value;
 
-    // TODO: Implement Zod validation for asset data before submitting
-    // const validationResult = assetSchema.safeParse(payload);
-    // if (!validationResult.success) { /* handle errors */ }
-
     try {
-      const res = await fetch(`/api/assets/${id}`, { // API endpoint to be created
+      const res = await fetch(`/api/assets/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -224,7 +232,7 @@ export default function EditAssetPage() {
       }
 
       toast.success('Activo actualizado correctamente!', { id: savingToastId });
-      router.push(`/dashboard/assets`); // Or to asset detail page: /dashboard/assets/${id}
+      router.push(`/dashboard/assets`);
       router.refresh();
     } catch (err: any) {
       console.error("Error updating asset:", err);
@@ -249,7 +257,7 @@ export default function EditAssetPage() {
       <div className="mb-6">
         <Button
           as={NextUILink}
-          href={originalAsset ? `/dashboard/assets` : '/dashboard/assets'} // Or /dashboard/assets/${id} for detail view
+          href={originalAsset ? `/dashboard/assets` : '/dashboard/assets'}
           variant="light"
           startContent={<ArrowLeftIcon className="mr-1" />}
         >
@@ -267,7 +275,7 @@ export default function EditAssetPage() {
             <div className="flex flex-col items-center space-y-3 p-4 border border-default-200 rounded-medium">
               <h3 className="text-lg font-medium text-foreground-600 self-start">Imagen del Activo</h3>
               <AssetImageUpload
-                assetId={id!}
+                assetId={parseInt(id as string)}
                 currentImageUrl={formData.image_url || ""}
                 onUploadSuccess={handleImageUploadSuccess}
               />
@@ -293,7 +301,34 @@ export default function EditAssetPage() {
             </div>
             <Textarea name="description" label="Descripción" value={formData.description || ""} onChange={handleChange} variant="bordered" minRows={3} isDisabled={isSaving} />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* IT Asset Fields Section */}
+            <div className="border border-default-200 p-4 rounded-medium bg-default-50">
+              <h3 className="text-lg font-semibold mb-4">Clasificación y Detalles Técnicos</h3>
+              <ITAssetFields
+                assetType={formData.asset_type as any}
+                itDeviceType={formData.it_device_type}
+                ipAddress={formData.ip_address}
+                subnetMask={formData.subnet_mask}
+                onAssetTypeChange={(val) => handleSelectChange('asset_type', val)}
+                onITDeviceTypeChange={(val) => handleSelectChange('it_device_type', val)}
+                onFieldChange={handleFieldChange}
+                isDisabled={isSaving}
+                isVisible={() => true} // Always visible or control visibility if needed
+                errors={{}} // We can pass errors if we have validation state
+              />
+            </div>
+
+            {/* Network Connections Section - Only if it's an IT asset */}
+            {formData.asset_type === 'informatica' && (
+              <div className="border border-default-200 p-4 rounded-medium bg-default-50 mt-4">
+                <h3 className="text-lg font-semibold mb-4">Conexiones de Red</h3>
+                <NetworkConnectionManager
+                  assetId={parseInt(id as string)}
+                />
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
               <DatePicker
                 name="purchase_date_value"
                 label="Fecha de Compra"
@@ -358,7 +393,6 @@ export default function EditAssetPage() {
               selectedKeys={formData.current_location_id ? [String(formData.current_location_id)] : []}
               onSelectionChange={(keys) => handleSelectChange("current_location_id", Array.from(keys as Set<string>)[0] as string | null)}
               variant="bordered"
-              // isRequired // Decide si es obligatorio
               isDisabled={isSaving}
             >
               {locations.map((location) => (
